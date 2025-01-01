@@ -62,9 +62,9 @@
 /**
  * @brief GPIO pin assignments for switches and LEDs.
  */
-#define SWT_PIN01                 19                  ///< @brief GPIO pin number for Switch 1.
-#define SWT_PIN02                 19                  ///< @brief GPIO pin number for Switch 2.
-#define LED_PIN                 19                  ///< @brief GPIO pin number for LED (same as Switch 1 for simplicity).
+#define SWT_PIN01                 5                  ///< @brief GPIO pin number for Switch 1.
+#define SWT_PIN02                 0                  ///< @brief GPIO pin number for Switch 2.
+#define LED_PIN                 4                  ///< @brief GPIO pin number for LED (same as Switch 1 for simplicity).
 
 // ==================================================
 // EEPROM Configuration
@@ -73,13 +73,20 @@
 /**
  * @brief EEPROM related configuration including size and address assignments.
  */
-#define EEPROM_SIZE             256                 ///< @brief Total EEPROM size in bytes.
-#define TRIGGER_TIME_START_ADD  1                   ///< @brief Start address for storing trigger time in EEPROM.
-#define LAST_STORED_TIME_START_ADD 50              ///< @brief Start address for storing the last stored time in EEPROM.
-#define WIFI_SSID_ADDR          72                  ///< @brief EEPROM address for storing Wi-Fi SSID.
-#define WIFI_PASS_ADDR          125                 ///< @brief EEPROM address for storing Wi-Fi password.
+#define EEPROM_SIZE                     256        ///< @brief Total EEPROM size in bytes.
 
-#define FIRST_TIME_ADD   171
-#define FIRSTIME_VAL  109
-#define SECONDTIME_VAL 83
+// Time-related addresses
+#define TRIGGER_TIME_START_ADD           1          ///< @brief Start address for storing trigger time in EEPROM.
+#define LAST_STORED_TIME_START_ADD       50         ///< @brief Start address for storing the last stored time in EEPROM.
+#define SECOND_TIME_CHECK_ADD            100        ///< @brief Start address for storing second-time flag.
+
+// Wi-Fi credentials addresses
+#define WIFI_SSID_ADDR                   120        ///< @brief EEPROM address for storing Wi-Fi SSID.
+#define WIFI_PASS_ADDR                   180        ///< @brief EEPROM address for storing Wi-Fi password.
+
+// First-time/Second-time flags addresses
+#define FIRST_TIME_FLAG_ADD              171        ///< @brief Address for storing the first-time flag.
+#define FIRST_TIME_FLAG_VAL              109        ///< @brief Value for first-time flag.
+#define SECOND_TIME_FLAG_VAL             83         ///< @brief Value for second-time flag.
+
 #endif // CONFIG_H

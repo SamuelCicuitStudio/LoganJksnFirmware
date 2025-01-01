@@ -59,11 +59,11 @@ void ConfigManager::begin() {
  * This function writes `FIRSTIME_VAL` to the EEPROM at the specified address to indicate that it’s the first time the device is powered on.
  */
 void ConfigManager::setFirstTimeFlag() {
-    EEPROM.put(FIRST_TIME_ADD, FIRSTIME_VAL); // Store FIRSTIME_VAL at the specified address
+    EEPROM.put(FIRST_TIME_FLAG_ADD, FIRST_TIME_FLAG_VAL); // Store FIRSTIME_VAL at the specified address
     EEPROM.commit();
     if (DEBUGMODE) {
         Serial.print("First-time flag set to: ");
-        Serial.println(FIRSTIME_VAL);
+        Serial.println(FIRST_TIME_FLAG_VAL);
     }
 }
 
@@ -75,8 +75,8 @@ void ConfigManager::setFirstTimeFlag() {
  * @return `true` if the system is powered on for the first time, `false` otherwise.
  */
 bool ConfigManager::isFirstTime() {
-    int value = EEPROM.read(FIRST_TIME_ADD); // Read the value at the specified address
-    if (value == FIRSTIME_VAL) {
+    int value = EEPROM.read(FIRST_TIME_FLAG_ADD); // Read the value at the specified address
+    if (value == FIRST_TIME_FLAG_VAL) {
         // Flag matches FIRSTIME_VAL, assume first-time use
         return true;
     }
@@ -88,11 +88,11 @@ bool ConfigManager::isFirstTime() {
  * This function writes `SECONDTIME_VAL` to the EEPROM at the specified address to indicate that it’s the second time the device is powered on.
  */
 void ConfigManager::setSecondTimeFlag() {
-    EEPROM.write(FIRST_TIME_ADD, SECONDTIME_VAL); // Store SECONDTIME_VAL at the specified address
+    EEPROM.write(FIRST_TIME_FLAG_ADD, SECOND_TIME_FLAG_VAL); // Store SECONDTIME_VAL at the specified address
     EEPROM.commit();
     if (DEBUGMODE) {
         Serial.print("Second-time flag set to: ");
-        Serial.println(SECONDTIME_VAL);
+        Serial.println(SECOND_TIME_FLAG_VAL);
     }
 }
 
@@ -104,9 +104,9 @@ void ConfigManager::setSecondTimeFlag() {
  * @return `true` if the system is powered on for the second time, `false` otherwise.
  */
 bool ConfigManager::isSecondTime() {
-    int value = EEPROM.read(FIRST_TIME_ADD); // Read the value at the specified address
-    if (value == SECONDTIME_VAL) {
-        // Flag matches SECONDTIME_VAL, assume second-time use
+    int value = EEPROM.read(FIRST_TIME_FLAG_ADD); // Read the value at the specified address
+    if (value == SECOND_TIME_FLAG_VAL) {
+        // Flag matches SECOND_TIME_FLAG_VAL, assume second-time use
         return true;
     }
     return false;
