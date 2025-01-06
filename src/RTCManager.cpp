@@ -1,91 +1,83 @@
-// RTCManager.cpp
-#include "RTCManager.hpp"
+#include "RTCManager.h"
+#include <time.h>
+#include <sys/time.h>
 
-/**
- * @brief Constructs an RTCManager object.
- *
- * This constructor is used to initialize the RTCManager object.
- * Currently, it does not perform any additional initialization.
- */
-RTCManager::RTCManager() {
-    // Constructor body (empty or could include initialization logic)
-}
-/**
- * @brief Sets the RTC time using a Unix timestamp provided as an integer.
- *
- * This function initializes the ESP8266's internal RTC with the specified Unix timestamp.
- * @param timestamp The Unix timestamp (seconds since epoch) as an integer.
- */
-void RTCManager::setTimeFromTimestamp(int timestamp) {
-    struct timeval now = { .tv_sec = static_cast<time_t>(timestamp), .tv_usec = 0 };
-    settimeofday(&now, NULL); // Set the RTC time
-}
-/**
- * @brief Sets the RTC time.
- *
- * This function initializes the ESP32's internal RTC with the specified date and time.
- * @param year The year (e.g., 2025).
- * @param month The month (1-12).
- * @param day The day of the month (1-31).
- * @param hour The hour (0-23).
- * @param minute The minute (0-59).
- * @param second The second (0-59).
- */
-void RTCManager::setTime(int year, int month, int day, int hour, int minute, int second) {
-    struct tm timeinfo;
-    timeinfo.tm_year = year - 1900; // tm_year is year since 1900
-    timeinfo.tm_mon = month - 1;   // tm_mon is 0-based (0 = January)
-    timeinfo.tm_mday = day;
-    timeinfo.tm_hour = hour;
-    timeinfo.tm_min = minute;
-    timeinfo.tm_sec = second;
-    timeinfo.tm_isdst = -1;        // No daylight saving time
-
-    time_t t = mktime(&timeinfo); // Convert to time_t (seconds since epoch)
-
-    struct timeval now = { .tv_sec = t, .tv_usec = 0 };
-    settimeofday(&now, NULL);     // Set the RTC time
+// Constructor implementation
+RTCManager::RTCManager(struct tm* timeinfo) {
+    this->timeinfo = timeinfo;  // Store the pointer to the timeinfo struct
+    update();  // Initialize time and date values
+    Serial.print("Time: ");
+    Serial.println(formattedTime);  // Print formatted time (HH:MM)
+    Serial.print("Date: ");
+    Serial.println(formattedDate);  // Print formatted date (YYYY-MM-DD)
 }
 
-/**
- * @brief Retrieves the current time as a formatted string.
- *
- * This function fetches the current time from the RTC and formats it as a string in the format "YYYY-MM-DD HH:MM:SS".
- * @return A string representation of the current time.
- */
-std::string RTCManager::getTime() {
+// Set the system time from a Unix timestamp (seconds since Jan 1, 1970)
+void RTCManager::setUnixTime(unsigned long timestamp) {
     struct timeval tv;
-    gettimeofday(&tv, NULL);
-
-    time_t now = tv.tv_sec;
-    struct tm *timeinfo = localtime(&now); // Convert to local time
-
-    char buffer[20];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
-
-    return std::string(buffer);
+    tv.tv_sec = timestamp;  // Set seconds since the Unix epoch
+    tv.tv_usec = 0;  // No microseconds
+    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
+    settimeofday(&tv, nullptr); // Set system time
 }
 
-/**
- * @brief Retrieves the current Unix timestamp.
- *
- * This function fetches the current time from the RTC and returns it as a Unix timestamp (seconds since epoch).
- * @return The current Unix timestamp as a time_t.
- */
-time_t RTCManager::getTimestamp() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec; // Return the Unix timestamp
+// Get the current Unix timestamp (seconds since Jan 1, 1970)
+unsigned long RTCManager::getUnixTime() {
+    time_t now;
+    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
+    if (getLocalTime(timeinfo)) {
+        // Convert time struct to Unix timestamp
+        now = mktime(timeinfo);
+        return now;
+    }
+    return 0;  // Return 0 if time can't be fetched
 }
 
-/**
- * @brief Retrieves the current Unix timestamp as an integer.
- *
- * This function fetches the current time from the RTC and returns it as an integer.
- * @return The current Unix timestamp as an integer.
- */
-int RTCManager::getTimestampAsInt() {
+// Get the current time as a formatted string (HH:MM)
+String RTCManager::getTime() {
+    return formattedTime;
+}
+
+// Get the current date as a formatted string (YYYY-MM-DD)
+String RTCManager::getDate() {
+    return formattedDate;
+}
+
+// Update the formatted time and date values
+void RTCManager::update() {
+    if (getLocalTime(timeinfo)) {
+        // Format time (HH:MM)
+        char timeString[6];
+        sprintf(timeString, "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
+        formattedTime = String(timeString);
+
+        // Format date (YYYY-MM-DD)
+        char dateString[11];
+        sprintf(dateString, "%04d-%02d-%02d", timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
+        formattedDate = String(dateString);
+    } else {
+        Serial.println("Failed to get local time.");
+    }
+}
+
+// Function to set the time of the RTC directly
+void RTCManager::setRTCTime(int year, int month, int day, int hour, int minute, int second) {
+    // Set the time values directly in the timeinfo struct
+    timeinfo->tm_year = year - 1900;  // Year since 1900 (e.g., 2025 -> 2025 - 1900)
+    timeinfo->tm_mon = month - 1;     // Month (0-based, e.g., January is 0)
+    timeinfo->tm_mday = day;          // Day of the month
+    timeinfo->tm_hour = hour;         // Hour (24-hour format)
+    timeinfo->tm_min = minute;        // Minute
+    timeinfo->tm_sec = second;        // Second
+
+    // Use settimeofday to update the system time
     struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return static_cast<int>(tv.tv_sec); // Return the Unix timestamp as an integer
+    tv.tv_sec = mktime(timeinfo);  // Convert tm structure to Unix timestamp
+    tv.tv_usec = 0;  // No microseconds
+
+    // Set the system time
+    settimeofday(&tv, nullptr);
+
+    // Update the formatted time and date in the class
+    update();
 }

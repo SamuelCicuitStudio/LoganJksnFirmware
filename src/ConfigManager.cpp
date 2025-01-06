@@ -1,356 +1,487 @@
-#include "ConfigManager.hpp"
 
-ConfigManager::ConfigManager() {
-    // Constructor implementation
-}
+#include "ConfigManager.h"
+
+
+/************************************************************************************************/
+/*                           Config Manager class definition                                    */
+/************************************************************************************************/
+/**
+ * @brief Constructor for the ConfigManager class.
+ * 
+ * Initializes the ConfigManager with a reference to an external Preferences object,
+ * which is used for storing and retrieving configuration settings.
+ * 
+ * @param prefs Reference to the Preferences object.
+ */
+ConfigManager::ConfigManager(Preferences* preferences) : preferences(preferences),namespaceName(CONFIG_PARTITION) {}
 
 /**
- * @brief Destructor for ConfigManager class.
+ * @brief Destructor for the ConfigManager class.
  * 
- * This is the destructor for the ConfigManager class. It currently has no specific implementation
- * but could be expanded in the future if needed for cleaning up resources.
+ * Ensures that the preferences are properly closed when the ConfigManager 
+ * object is destroyed, preventing memory leaks and ensuring data integrity.
  */
 ConfigManager::~ConfigManager() {
-    // Destructor implementation
+    end();  // Ensure preferences are closed properly
 }
 
 /**
- * @brief Initializes the EEPROM, LED, and Switch pins, and checks the EEPROM initialization status.
+ * @brief Restarts the system after a specified delay.
  * 
- * This function begins the EEPROM operation by calling `EEPROM.begin()` and checks the size of the EEPROM
- * to verify successful initialization. If the EEPROM size is zero, it reports an initialization failure.
- * If the size is valid, it reports a successful initialization. Additionally, it sets up the LED pin as an
- * output and ensures it's turned off initially, and configures the switch pin as an input.
+ * This function initiates a countdown before restarting the device. 
+ * During the countdown, it prints the remaining time and a series of '#' 
+ * characters for visibility. It also resets the watchdog timer to prevent 
+ * the system from resetting prematurely.
  * 
- * @note The switch pin is configured for input, and the LED pin is set to output.
- * @note The EEPROM initialization will be checked by verifying the size.
+ * @param delayTime Time in milliseconds to wait before restarting the device.
+ */
+void ConfigManager::RestartSysDelay(unsigned long delayTime) {
+    unsigned long startTime = millis();  // Record the start time
+
+    if (DEBUGMODE) {
+        Serial.println("################################");
+        Serial.print("Restarting the Device in: ");
+        Serial.print(delayTime / 1000);  // Convert delayTime to seconds
+        Serial.println(" Sec");
+    }
+
+    // Ensure 32 '#' are printed after the countdown
+    if (DEBUGMODE) {
+        for (int i = 0; i < 32; i++) {  // Print 32 '#' characters
+            Serial.print("#");
+            delay(125);  // Delay for visibility of each '#' character
+            esp_task_wdt_reset();  // Reset watchdog timer
+        }
+        Serial.println();  // Move to the next line after printing
+    }
+
+    if (DEBUGMODE) {
+        Serial.println("Restarting now...");
+    }
+    simulatePowerDown();  // Simulate power down before restart
+}
+
+/**
+ * @brief Restarts the system after a specified delay.
+ * 
+ * This function initiates a countdown before restarting the device. 
+ * During the countdown, it prints the remaining time and a series of '#' 
+ * characters for visibility. It also resets the watchdog timer to prevent 
+ * the system from resetting prematurely.
+ * 
+ * @param delayTime Time in milliseconds to wait before restarting the device.
+ */
+void ConfigManager::CountdownDelay(unsigned long delayTime) {
+    unsigned long startTime = millis();  // Record the start time
+
+    if (DEBUGMODE) {
+        Serial.println("################################");
+        Serial.print("Waiting User Action: ");
+        Serial.print(delayTime / 1000);  // Convert delayTime to seconds
+        Serial.println(" Sec");
+    }
+
+    // Ensure 32 '#' are printed after the countdown
+    if (DEBUGMODE) {
+        for (int i = 0; i < 32; i++) {  // Print 32 '#' characters
+            Serial.print("#");
+            delay(125);  // Delay for visibility of each '#' character
+            esp_task_wdt_reset();  // Reset watchdog timer
+        }
+        Serial.println();  // Move to the next line after printing
+    }
+
+}
+/**
+ * @brief Simulates a power-down by putting the ESP32 into deep sleep.
+ * 
+ * This function enables the ESP32 to enter deep sleep mode for 1 second. 
+ * It is used to simulate the power-down state of the device.
+ */
+void ConfigManager::simulatePowerDown() {
+    // Put the ESP32 into deep sleep for 1 second (simulate power-down)
+    esp_sleep_enable_timer_wakeup(1000000); // 1 second (in microseconds)
+    esp_deep_sleep_start();  // Enter deep sleep
+}
+
+/**
+ * @brief Opens the preferences in read-write mode.
+ * 
+ * This function initializes the Preferences library to allow 
+ * writing configuration settings. It opens the specified 
+ * configuration partition in read-write mode.
+ */
+void ConfigManager::startPreferencesReadWrite() {
+    preferences->begin(CONFIG_PARTITION, false);  // false = read-write mode
+    Serial.println("Preferences opened in write mode.");
+}
+
+/**
+ * @brief Opens the preferences in read-only mode.
+ * 
+ * This function initializes the Preferences library to allow 
+ * reading configuration settings. It opens the specified 
+ * configuration partition in read-only mode.
+ */
+void ConfigManager::startPreferencesRead() {
+    preferences->begin(CONFIG_PARTITION, true);  // true = read-only mode
+    Serial.println("Preferences opened in read mode.");
+}
+
+/**
+ * @brief Initializes the configuration manager and preferences.
+ * 
+ * This function sets up the ConfigManager by checking the reset flag
+ * and initializing various settings and configurations if necessary. 
+ * It uses the Preferences library to store configuration data and
+ * ensures that the system can either reset to default settings or
+ * use existing configurations.
  */
 void ConfigManager::begin() {
-    // Initialize EEPROM
-    EEPROM.begin(EEPROM_SIZE);  
+    if (DEBUGMODE) {
+        Serial.println("###########################################################");
+        Serial.println("#               Starting CONFIG Manager                   #");
+        Serial.println("###########################################################");
+    }
     
-    // Get the EEPROM size
-    size_t eepromSize = EEPROM.length();
-    
-    // Check if the EEPROM size is valid
-    if (eepromSize == 0) {
+    bool resetFlag = GetBool(RESET_FLAG, true);  // Default to true if not set
+
+    if (resetFlag) {
+        // Only print once, if necessary, then reset device
         if (DEBUGMODE) {
-            Serial.println("Failed to initialize EEPROM (size is 0)");
-        }
+            Serial.println("ConfigManager: Initializing the device...");
+        };
+        initializeDefaults();  // Reset preferences if the flag is set
+        RestartSysDelay(7000);  // Use a delay for restart after reset
     } else {
+        // Use existing configuration, no need for unnecessary delay
         if (DEBUGMODE) {
-            Serial.print("EEPROM initialized successfully with size: ");
-            Serial.println(eepromSize);
+            Serial.println("ConfigManager: Using existing configuration...");
         }
     }
-
-    // Set the LED pin as output
-    pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, LOW);  // Ensure the LED is off initially
-
-    // Set the switch pin as input
-    pinMode(SWT_PIN01, INPUT);
-    pinMode(SWT_PIN02, INPUT);
 }
 
-/** 
- * @brief Sets a flag in the EEPROM to indicate first-time use.
+
+
+/**
+ * @brief Retrieves the reset flag from preferences.
  * 
- * This function writes `FIRSTIME_VAL` to the EEPROM at the specified address to indicate that it’s the first time the device is powered on.
+ * This function checks and returns the value of the "Reset" flag from 
+ * the preferences. If the flag is not set, it defaults to true. The 
+ * function also resets the watchdog timer to prevent the system from 
+ * resetting unexpectedly.
+ * 
+ * @return bool The value of the reset flag.
  */
-void ConfigManager::setFirstTimeFlag() {
-    EEPROM.put(FIRST_TIME_FLAG_ADD, FIRST_TIME_FLAG_VAL); // Store FIRSTIME_VAL at the specified address
-    EEPROM.commit();
-    if (DEBUGMODE) {
-        Serial.print("First-time flag set to: ");
-        Serial.println(FIRST_TIME_FLAG_VAL);
-    }
+bool ConfigManager::getResetFlag() {
+    esp_task_wdt_reset();
+    bool value = preferences->getBool(RESET_FLAG, true); // Default to true if not set
+    return value;
 }
 
 /**
- * @brief Checks if it is the first time the system is powered on.
+ * @brief Closes the preferences object.
  * 
- * This function reads the flag from the EEPROM. If the value at `FIRST_TIME_ADD` is `FIRSTIME_VAL`, it assumes that the system is powered on for the first time.
- * 
- * @return `true` if the system is powered on for the first time, `false` otherwise.
+ * This function is responsible for closing the preferences object to 
+ * ensure that any changes are saved and resources are freed. 
+ * It should be called when no further preference operations are needed.
  */
-bool ConfigManager::isFirstTime() {
-    int value = EEPROM.read(FIRST_TIME_FLAG_ADD); // Read the value at the specified address
-    if (value == FIRST_TIME_FLAG_VAL) {
-        // Flag matches FIRSTIME_VAL, assume first-time use
-        return true;
-    }
-    return false;
+void ConfigManager::end() {
+    preferences->end();  // Close preferences
 }
-/** 
- * @brief Sets a flag in the EEPROM to indicate second-time use.
+
+
+/**
+ * @brief Initializes all needed default variables.
  * 
- * This function writes `SECONDTIME_VAL` to the EEPROM at the specified address to indicate that it’s the second time the device is powered on.
+ * This function is called to initialize all necessary default variables 
+ * for the ConfigManager, ensuring that all values are set to a known 
+ * state before use.
  */
-void ConfigManager::setSecondTimeFlag() {
-    EEPROM.write(FIRST_TIME_FLAG_ADD, SECOND_TIME_FLAG_VAL); // Store SECONDTIME_VAL at the specified address
-    EEPROM.commit();
-    if (DEBUGMODE) {
-        Serial.print("Second-time flag set to: ");
-        Serial.println(SECOND_TIME_FLAG_VAL);
-    }
+void ConfigManager::initializeDefaults() {
+    initializeVariables();  // Initialize all default variables
 }
 
 /**
- * @brief Checks if it is the second time the system is powered on.
+ * @brief Initializes all default variables.
  * 
- * This function reads the flag from the EEPROM. If the value at `FIRST_TIME_ADD` is `SECONDTIME_VAL`, it assumes that the system is powered on for the second time.
- * 
- * @return `true` if the system is powered on for the second time, `false` otherwise.
+ * This function sets the initial values for various boolean and string 
+ * variables used by the ConfigManager. It includes settings for GPIO, 
+ * Wi-Fi SSID, and password. Debug messages are printed if DEBUGMODE is enabled.
  */
-bool ConfigManager::isSecondTime() {
-    int value = EEPROM.read(FIRST_TIME_FLAG_ADD); // Read the value at the specified address
-    if (value == SECOND_TIME_FLAG_VAL) {
-        // Flag matches SECOND_TIME_FLAG_VAL, assume second-time use
-        return true;
-    }
-    return false;
+void ConfigManager::initializeVariables() {
+    // Assign default values to configuration variables
+    PutBool(APWIFIMODE_FLAG, true);  // Default AP Wi-Fi mode flag
+    PutString(WIFISSID, DEFAULT_WIFI_SSID);  // Default Wi-Fi SSID
+    PutString(WIFIPASS, DEFAULT_WIFI_PASSWORD);  // Default Wi-Fi password
+    PutBool(RESET_FLAG, false);  // Reset flag is set to false after initialization
+
+    // Device information defaults
+    //PutString(DEVICE_NAME, DEFAULT_DEVICE_NAME);  // Default device name
+    //PutString(DEVICE_ID, DEFAULT_DEVICE_ID);  // Default device ID
+
+    // RTC time and date default values
+    PutULong64(CURRENT_TIME_SAVED, DEFAULT_CURRENT_TIME_SAVED);  // Default current time
+    PutULong64(LAST_TIME_SAVED, DEFAULT_LAST_TIME_SAVED);  // Default last saved time
+    PutULong64(ALERT_TIMESTAMP_SAVED, DEFAULT_ALERT_TIME_SAVED);  // Default alert time
+    PutString(ALERT_DATE_, "2025-01-01");  // Default date saved
+    PutString(ALERT_TIME_, "11:18");  // Default time saved
+
+    PutBool(LED_STATE, DEFAULT_LED_STATE);  // Default LED state
+    PutInt(FIRST_TIME,DEFAULT_FIRST_TIME_FLAG);
+    // Add any additional configurations here if needed
 }
+
+
 /**
- * @brief Sets the trigger time in the EEPROM as a Unix timestamp.
+ * @brief Gets a boolean value from preferences.
  * 
- * This function stores the Unix timestamp (the number of seconds since January 1, 1970) in the EEPROM.
- * The time is written starting at address 1 using `EEPROM.put()`, and the change is committed using `EEPROM.commit()`.
+ * This function retrieves a boolean value associated with the given key 
+ * from the preferences. If the key does not exist, it returns the specified 
+ * default value. The function also resets the watchdog timer to prevent 
+ * unexpected resets.
  * 
- * @param unixTime The Unix timestamp to store in the EEPROM.
+ * @param key The key associated with the boolean value.
+ * @param defaultValue The default value to return if the key does not exist.
+ * @return bool The retrieved boolean value or the default value.
  */
-void ConfigManager::setTriggerTime(uint32_t unixTime) {
-    EEPROM.put(TRIGGER_TIME_START_ADD, unixTime); // Store the time starting at address 1
-    EEPROM.commit();
-    if (DEBUGMODE) {
-        Serial.print("Trigger time set to: ");
-        Serial.println(unixTime);
-    }
+bool ConfigManager::GetBool(const char* key, bool defaultValue) {
+    esp_task_wdt_reset();
+    bool value = preferences->getBool(key, defaultValue);
+    return value;
 }
 
 /**
- * @brief Retrieves the trigger time stored in the EEPROM.
+ * @brief Gets an integer value from preferences.
  * 
- * This function retrieves the Unix timestamp from the EEPROM, which represents the time at which an event should occur.
- * The time is read starting from address 1 using `EEPROM.get()`.
+ * This function retrieves an integer value associated with the given key 
+ * from the preferences. If the key does not exist, it returns the specified 
+ * default value. The function also resets the watchdog timer to prevent 
+ * unexpected resets.
  * 
- * @return The stored Unix timestamp.
+ * @param key The key associated with the integer value.
+ * @param defaultValue The default value to return if the key does not exist.
+ * @return int The retrieved integer value or the default value.
  */
-uint32_t ConfigManager::getTriggerTime() {
-    uint32_t unixTime = 0;
-    EEPROM.get(TRIGGER_TIME_START_ADD, unixTime); // Retrieve the time starting at address 1
-    return unixTime;
+int ConfigManager::GetInt(const char* key, int defaultValue) {
+    esp_task_wdt_reset();
+    int value = preferences->getInt(key, defaultValue);
+    return value;
+}
+/**
+ * @brief Gets an integer value from preferences.
+ * 
+ * This function retrieves an integer value associated with the given key 
+ * from the preferences. If the key does not exist, it returns the specified 
+ * default value. The function also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key associated with the integer value.
+ * @param defaultValue The default value to return if the key does not exist.
+ * @return int The retrieved integer value or the default value.
+ */
+uint64_t ConfigManager::GetULong64(const char* key, int defaultValue) {
+    esp_task_wdt_reset();
+    uint64_t value = preferences->getULong64(key, defaultValue);
+    return value;
 }
 
 /**
- * @brief Clears all data stored in the EEPROM.
+ * @brief Gets a float value from preferences.
  * 
- * This function clears all data in the EEPROM by writing 0xFF to every address in the EEPROM.
- * It uses `EEPROM.write()` in a loop for each memory location and commits the changes with `EEPROM.commit()`.
+ * This function retrieves a float value associated with the given key 
+ * from the preferences. If the key does not exist, it returns the specified 
+ * default value. The function also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key associated with the float value.
+ * @param defaultValue The default value to return if the key does not exist.
+ * @return float The retrieved float value or the default value.
  */
-void ConfigManager::clearEEPROM() {
-    for (int i = 0; i < EEPROM_SIZE; i++) {
-        EEPROM.write(i, 0xFF);
-    }
-    EEPROM.commit();
-    if (DEBUGMODE) {
-        Serial.println("EEPROM cleared");
-    }
+float ConfigManager::GetFloat(const char* key, float defaultValue) {
+    esp_task_wdt_reset();
+    float value = preferences->getFloat(key, defaultValue);
+    return value;
 }
 
 /**
- * @brief Blinks an LED to indicate an action, such as an expired timestamp.
+ * @brief Gets a string value from preferences.
  * 
- * This function configures the LED pin as an output and blinks the LED with a 500ms ON and 500ms OFF cycle.
- * This is typically used to signal some event, such as when the trigger time has been exceeded.
+ * This function retrieves a string value associated with the given key 
+ * from the preferences. If the key does not exist, it returns the specified 
+ * default value. The function also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key associated with the string value.
+ * @param defaultValue The default value to return if the key does not exist.
+ * @return String The retrieved string value or the default value.
  */
-void ConfigManager::blink() {
-    pinMode(LED_PIN, OUTPUT);  // Set LED pin as output
-    digitalWrite(LED_PIN, HIGH);  // Turn on the LED
-    delay(500);                  // Wait for 500ms
-    digitalWrite(LED_PIN, LOW);   // Turn off the LED
-    delay(500);                  // Wait for 500ms
+String ConfigManager::GetString(const char* key, const String& defaultValue) {
+    esp_task_wdt_reset();
+    String value = preferences->getString(key, defaultValue);
+    return value;
 }
 
 /**
- * @brief Checks if the given time exceeds the stored trigger time and performs an action if it does.
+ * @brief Puts a boolean value into preferences.
  * 
- * This function compares the given Unix timestamp (`time1`) with the stored trigger time. If `time1` is greater than
- * the stored trigger time, it calls the `blink()` function to blink the LED as an indication that the trigger time has passed.
+ * This function stores a boolean value associated with the given key 
+ * in the preferences. It also resets the watchdog timer to prevent 
+ * unexpected resets.
  * 
- * @param time1 The Unix timestamp to compare with the stored trigger time.
- * @return `true` if `time1` is greater than the stored trigger time, otherwise `false`.
+ * @param key The key to associate with the boolean value.
+ * @param value The boolean value to store.
  */
-bool ConfigManager::ExpiredCheck(uint32_t time1) {
-    if (time1 > getTriggerTime()) {
-        // If time1 is greater than the trigger time, do something
+void ConfigManager::PutBool(const char* key, bool value) {
+    esp_task_wdt_reset();
+    RemoveKey(key);
+    preferences->putBool(key, value);  // Store the new value
+}
+
+/**
+ * @brief Puts an unsigned integer value into preferences.
+ * 
+ * This function stores an unsigned integer value associated with the given 
+ * key in the preferences. It also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key to associate with the unsigned integer value.
+ * @param value The unsigned integer value to store.
+ */
+void ConfigManager::PutUInt(const char* key, int value) {
+    esp_task_wdt_reset();
+    RemoveKey(key);
+    preferences->putUInt(key, value);  // Store the new value
+}
+
+/**
+ * @brief Puts an unsigned integer value into preferences.
+ * 
+ * This function stores an unsigned integer value associated with the given 
+ * key in the preferences. It also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key to associate with the unsigned integer value.
+ * @param value The unsigned integer value to store.
+ */
+void ConfigManager::PutULong64(const char* key, int value) {
+    esp_task_wdt_reset();
+    RemoveKey(key);
+    preferences->putULong64(key, value);  // Store the new value
+}
+
+/**
+ * @brief Puts an integer value into preferences.
+ * 
+ * This function stores an integer value associated with the given key 
+ * in the preferences. It also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key to associate with the integer value.
+ * @param value The integer value to store.
+ */
+void ConfigManager::PutInt(const char* key, int value) {
+    esp_task_wdt_reset();
+    RemoveKey(key);
+    preferences->putInt(key, value);  // Store the new value
+}
+
+/**
+ * @brief Puts a float value into preferences.
+ * 
+ * This function stores a float value associated with the given key 
+ * in the preferences. It also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key to associate with the float value.
+ * @param value The float value to store.
+ */
+void ConfigManager::PutFloat(const char* key, float value) {
+    esp_task_wdt_reset();
+    RemoveKey(key);
+    preferences->putFloat(key, value);  // Store the new value
+}
+
+/**
+ * @brief Puts a string value into preferences.
+ * 
+ * This function stores a string value associated with the given key 
+ * in the preferences. It also resets the watchdog timer to prevent 
+ * unexpected resets.
+ * 
+ * @param key The key to associate with the string value.
+ * @param value The string value to store.
+ */
+void ConfigManager::PutString(const char* key, const String& value) {
+    esp_task_wdt_reset();
+    RemoveKey(key);
+    preferences->putString(key, value);  // Store the new value
+}
+
+/**
+ * @brief Clears all stored preferences.
+ * 
+ * This function removes all key-value pairs from the preferences 
+ * storage.
+ */
+void ConfigManager::ClearKey() {
+    preferences->clear();
+}
+
+/**
+ * @brief Removes a specific key from the preferences.
+ * 
+ * This function checks if the specified key exists in the 
+ * preferences and removes it if it does. If the key is not found, 
+ * it logs a message if debugging is enabled.
+ * 
+ * @param key The key to remove from the preferences.
+ */
+void ConfigManager::RemoveKey(const char * key) {
+    esp_task_wdt_reset();  // Reset the watchdog timer
+
+    // Check if the key exists before removing it
+    if (preferences->isKey(key)) {
+        preferences->remove(key);  // Remove the key if it exists
         if (DEBUGMODE) {
-            Serial.println("Time1 is greater than Time2, action performed.");
+            Serial.print("Removed key: ");
+            Serial.println(key);
         }
-        blink();  // Call the blink function to blink the LED
-        return true;
-    } else {
-        // If time1 is not greater than the trigger time, return false
-        return false;
+    } else if (DEBUGMODE) {
+        Serial.print("Key not found, skipping: ");
+        Serial.println(key);
     }
 }
 
 /**
- * @brief Updates the stored trigger time by adding a specified amount of hours, minutes, and seconds.
+ * @brief Sets the AP flag in the preferences.
  * 
- * This function updates the stored Unix timestamp in the EEPROM by adding the specified hours, minutes, and seconds
- * to the current stored timestamp. The input hours, minutes, and seconds are first converted to seconds, and the 
- * resulting value is added to the existing timestamp.
- * 
- * @param Hour The number of hours to add to the stored time.
- * @param min The number of minutes to add to the stored time.
- * @param sec The number of seconds to add to the stored time.
+ * This function removes the existing "strAP" key and sets it to 
+ * true. It introduces a delay after updating the preferences.
  */
-void ConfigManager::updateStoredTime(uint8_t Hour, uint8_t min, uint8_t sec) {
-    uint32_t currentTime = getTriggerTime(); // Get the current stored time (Unix timestamp)
-
-    // Convert hours, minutes, and seconds into total seconds and add to the current time
-    uint32_t totalSeconds = (Hour * 3600) + (min * 60) + sec;
-    currentTime += totalSeconds; // Add the total seconds to the current Unix timestamp
-
-    setTriggerTime(currentTime); // Update the stored time in EEPROM
-
-    if (DEBUGMODE) {
-        Serial.print("Updated time by ");
-        Serial.print(Hour);
-        Serial.print(" hour(s), ");
-        Serial.print(min);
-        Serial.print(" minute(s), ");
-        Serial.print(sec);
-        Serial.println(" second(s).");
-    }
+void ConfigManager::SetAPFLag() {
+    RemoveKey(APWIFIMODE_FLAG);
+    preferences->putBool(APWIFIMODE_FLAG, true);
+    delay(100);
 }
 
 /**
- * @brief Converts a Unix timestamp to a human-readable time string.
+ * @brief Resets the AP flag in the preferences.
  * 
- * This function converts a Unix timestamp to a human-readable format like "YYYY-MM-DD HH:MM:SS".
- * It uses the `gmtime` function to convert the timestamp into a `tm` structure and then formats it into a string.
- * 
- * @param unixTime The Unix timestamp to convert.
- * @return A human-readable string representing the date and time.
+ * This function removes the existing "strAP" key and sets it to 
+ * true. It introduces a delay after updating the preferences.
  */
-String ConfigManager::unixToHuman(uint32_t unixTime) {
-    // Convert Unix timestamp to a tm structure
-    struct tm timeInfo;
-    gmtime_r((time_t*)&unixTime, &timeInfo);  // Convert to UTC time
-
-    // Format the time as a human-readable string
-    char buffer[20];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &timeInfo);
-    
-    return String(buffer);
-}
+void ConfigManager::ResetAPFLag() {
+    RemoveKey(APWIFIMODE_FLAG);
+    preferences->putBool(APWIFIMODE_FLAG, false);
+    delay(100);
+};
 
 /**
- * @brief Converts a human-readable time string to a Unix timestamp.
+ * @brief Returns the AP flag in the preferences.
  * 
- * This function takes a time string in the format "YYYY-MM-DD HH:MM:SS" and converts it back to a Unix timestamp.
- * It uses `strptime` to parse the string into a `tm` structure, then uses `mktime` to convert it to a Unix timestamp.
- * 
- * @param humanTime A human-readable string representing the date and time in "YYYY-MM-DD HH:MM:SS" format.
- * @return The corresponding Unix timestamp.
  */
-uint32_t ConfigManager::humanToUnix(const String &humanTime) {
-    // Parse the human-readable time string into a tm structure
-    struct tm timeInfo;
-    strptime(humanTime.c_str(), "%Y-%m-%d %H:%M:%S", &timeInfo);
-
-    // Convert the tm structure to Unix timestamp
-    return (uint32_t)mktime(&timeInfo);
+bool ConfigManager::GetAPFLag() {
+    return preferences->getBool(APWIFIMODE_FLAG, true);
 }
 
-/**
- * @brief Stores a Unix timestamp (32-bit unsigned integer) into the EEPROM at the specified address.
- *
- * This function uses EEPROM.put() to store the 32-bit Unix timestamp in the EEPROM,
- * ensuring simplicity and reliability.
- *
- * @param address The EEPROM address to store the Unix timestamp.
- *                Ensure the address is valid for a 32-bit value.
- * @param timestamp The 32-bit unsigned integer (Unix timestamp) to be stored.
- */
-void ConfigManager::storeUnixTimestamp(int address, uint32_t timestamp) {
-    EEPROM.put(address, timestamp); // Store the 32-bit Unix timestamp
-    EEPROM.commit();                // Commit changes to ensure persistence
-}
-
-/**
- * @brief Reads a Unix timestamp (32-bit unsigned integer) from the EEPROM at the specified address.
- *
- * This function uses EEPROM.get() to retrieve the 32-bit Unix timestamp stored at the given address.
- *
- * @param address The EEPROM address to read the Unix timestamp from.
- *                Ensure the address points to a valid location containing a 32-bit value.
- * @return uint32_t The 32-bit unsigned integer (Unix timestamp) retrieved from EEPROM.
- */
-uint32_t ConfigManager::readUnixTimestamp(int address) {
-    uint32_t timestamp;
-    EEPROM.get(address, timestamp); // Retrieve the 32-bit Unix timestamp
-    return timestamp;
-}
-
-/**
- * @brief Stores a string into the EEPROM at a specified address.
- * 
- * This function stores the length of the string at the starting address and then writes each 
- * character of the string sequentially into the EEPROM. After the string is written, 
- * the changes are committed to the EEPROM. A delay of 1 second is added to ensure the write operation completes.
- * 
- * @param startingAddress The address in the EEPROM where the string will be stored.
- * @param data The string data to store in the EEPROM.
- */
-void ConfigManager::storeString(int startingAddress, String data) {
-  byte len = data.length();  ///< Get the length of the string
-
-  EEPROM.write(startingAddress, len);  ///< Write the length of the string
-  
-  // Write each character of the string into EEPROM
-  for (int i = 0; i < len; i++) {
-    EEPROM.write(startingAddress + 1 + i, data[i]);  ///< Write each character of the string
-  }
-
-  EEPROM.commit();  ///< Commit the changes to EEPROM
-  delay(1000);  ///< Wait for 1 second to ensure the write operation is complete
-}
-
-/**
- * @brief Reads a string from the EEPROM starting from a specified address.
- * 
- * This function reads the length of the string stored in the EEPROM, then sequentially 
- * reads each character of the string into a character array. The character array is then 
- * converted to a `String` object and returned.
- * 
- * @param addrOffset The starting address in EEPROM where the string is stored.
- * @return The string read from the EEPROM.
- */
-String ConfigManager::readString(int addrOffset) {
-  int newStrLen = EEPROM.read(addrOffset);  ///< Read the length of the stored string
-  char data[newStrLen + 1];  ///< Create a character array to hold the string data
-
-  // Read each character of the string from EEPROM
-  for (int i = 0; i < newStrLen; i++) {
-    data[i] = EEPROM.read(addrOffset + 1 + i);  ///< Read each character of the string
-  }
-  data[newStrLen] = '\0';  ///< Null-terminate the character array
-
-  return String(data);  ///< Convert the character array to a String object and return it
-}
-
-/**
- * @brief Checks if the button connected to SWT_PIN01 is pressed.
- * 
- * This function reads the state of the button connected to `SWT_PIN01`.
- * It returns `true` if the button is pressed (active-low), meaning the pin reads `LOW`.
- * It returns `false` if the button is not pressed, meaning the pin reads `HIGH`.
- * 
- * @return `true` if the button is pressed (active-low), `false` otherwise.
- */
-bool ConfigManager::isButtonPressed() {
-    return !digitalRead(SWT_PIN01); // Return true if button is pressed (active-low)
-}

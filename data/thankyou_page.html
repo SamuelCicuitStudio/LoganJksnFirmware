@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #333;
+        }
+        .countdown-container {
+            font-size: 1.2em;
+            color: #666;
+            display: flex;
+            align-items: center;
+        }
+        #countdown {
+            font-size: 2em;
+            color: #ff6347;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .spinner {
+            margin: 20px auto;
+            border: 6px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 6px solid #3498db;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Thank You!</h1>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAK4AAACuCAMAAACY0sbcAAAAQlBMVEVHcEwrtnMrtnMrtnMqtnIrtnMqtnMqtnMrtnMrtnMrtnMrtnMrtnMrtnP////o+PBjyZh60ac8vH/6/vyc3b7H7Nr2VKyDAAAADXRSTlMA9ttCCboXLFp4n+uJysIhkAAABIJJREFUeNrtndmS4yoMhmMWs5kkk/R5/1c9Gad7Oglgs4hFVf6vUrn6SiUkkIU4nQ4dOnTo0KsYm4UQdNXjx8zYoKCzoHLRnBNizLTKGEII14ukYh7KpIIqTchkXa3/TYZoJcUQhp7pwr2kn+CEL7SzlYXUMai/yFqKbnZ9sNpkPYjnHv66pNj13cZLYz9mVBtbIKMpa+gFfLKFmngjn2AAsN/ArIEbwMA+gWu7hNBgsCuwrhnXZkUssIyq5sKU2writI5pF2OryCwzFtNWMjCTxFaUgY1p8zLZqpogHUJwW10cLKRRYhuIADmwbEL74JUQtMrYRppUeUhQk20moxgi2r/2ZYhoS3lb0xb5L5PNaUt4pbEdZOTI2QEqX4hOtA/ejHw8c9tNPHm/wxbbUUtqOOsRFF7Cg8TiuDnLrafjZrivst2VkC2o6Y9rKB5XSHIHZYeQwhEV0pIb03YQaYZkncWvNsbtMOJs8OybmotHMm6EeUcy7r55xzLurnnpNBbutB0ctB1MejOhmdFwjRh/txC5c5j5eLgbGzM5jYe7EcuaLrTrtXCxzS13jtfLJY6XzAP4wvVyPsfxBr1Bt6WN5dXdfeFJG8kb8IZ2CfiHNo43kIhVe9o4XtV1M/ZKe75fbnnbslau+0Z7vvzJdN5GrptO63deNSqt33n1sLS+yNtkpeXR+tZai1JTJq2v/NRgpeXS+taaHJfWWtk+MBTQekKDHpjWDQ21A0MRrRsaKuOW0bq4dXcMhbTurqEqbimti1szSxTTunmiYrmpnNYtPdXDBaB1cavlYAhaNwsn494a0pbjfv13a0fr4oo03K/7OYYXiNaDaxJpzxG8ULSFkWGl3ecFo/XgkmTaPV44WjdNJCThf7TbvIC0JXuGF9otXkhaFzd+A/mGG+QFpS3Z795ieGFpPSd3bS2cfYFpPXWRhKPlrn2haT1Hy5SD+w4vOK3n4J60adjkhaf1lEUSjxNhXnhaX9Ep8QNr0L4VaL3l88S6SIC3Bq33U1Vq1cnLW4XWW45OP/64vHVovcX+9KO7Y986tP5PKRllp0/eOrSB/qGMkukHbx3aQMNI1tk9xAtIG/jImlUmC9gXkDbY0JBVkfbyQtIG20Xy2i88vKC0wfaL3KLpJy8obbi5Jff7xId9YWk3+vRym3HeeO+wtBuNWdkl9F/eOzDt5n2E/I9rP7zQtJvXEfKL0k/7gtt2u2Wz4BLCygtOu90QW1JEf/DC0+60Gxd9DfwCp93tlcfVKo/tIgKyax7YLtEgu6KE7QIYsut12C4vYrsaiuziLbZrzdgujXebfJEaFXAOPMA2TgLZsA5so1CwDZrBNsanx0injKCAdQQVugFfyManNeYtpm06+s+Uj/5DN1gR29hKbENBsY1crT7QloAP6UY1LviEbRjzCdmo61OVQeJE1ZyFj2pM+wnbEPwTsicGoICbPeDwdAlEz2OswJgeH3mGNURPu3zHNUQP53zbGNGzRD9+HHz06Uk60KNPL8xIntR6hf59sEwM/WDZoUOHDvXS/+lt7Zhzk+lgAAAAAElFTkSuQmCC" alt="Logo">
+    <div class="countdown-container">
+        <p>Please wait while the device restarts.</p> 
+        <div id="countdown">15
+    </div>
+<script>
+        let countdown = 15;
+        function updateCountdown() {
+            document.getElementById("countdown").textContent = countdown;
+            if (countdown > 0) {
+                countdown--;
+                setTimeout(updateCountdown, 1000);
+            } else {
+                window.location.href = "/";
+            }
+        }
+        window.onload = updateCountdown;
+    </script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alarm and RTC Settings</title>
+    <style>
+        /* Reuse the CSS from your welcome page */
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background: #efebeb;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #efebeb;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(238, 235, 235, 0.4);
+        }
+
+        .container {
+            position: relative;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 600px;
+            padding: 40px;
+            text-align: center;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        p {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-size: 16px;
+            color: #333;
+            display: block;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        input[type="date"], input[type="time"], button {
+            display: block;
+            width: 100%;
+            max-width: 250px;
+            padding: 10px;
+            margin: 10px auto;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            width: 100%;
+        padding: 10px;
+        background-color: #00274d;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            background: #003d7a;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+            transform: scale(1.05);
+        }
+
+        button:active {
+            background: #00274d;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transform: scale(0.98);
+        }
+              /* Control the icon size and position inside the button */
+      button img {
+        width: 16px; /* Adjust icon size */
+        height: 16px;
+        position: relative; /* Allow x and y positioning */
+        bottom: 2px; /* Adjust the vertical position */
+        left: 0px; /* Adjust the horizontal position */
+        margin-right: 8px; /* Space between the icon and text */
+      }
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+    <div class="container">
+        <h1>Alarm and RTC Settings</h1>
+        <p>Configure the alarm time and date or set the ESP32 RTC.</p>
+
+        <!-- Alarm Settings Form -->
+        <form id="alarm-form" action="/setAlarm" method="POST">
+            <label for="alarm-date">Set Alarm Date:</label>
+            <input type="date" id="alarm-date" name="alarmDate" required>
+
+            <label for="alarm-time">Set Alarm Time:</label>
+            <input type="time" id="alarm-time" name="alarmTime" required>
+
+            <button type="submit"><img src="icons/alarm-clock-16.png" alt="Back Icon">  Set Alarm</button>
+        </form>
+
+        <!-- RTC Settings Form -->
+        <form id="rtc-form" action="/setRTC" method="POST">
+            <label for="rtc-date">Set RTC Date:</label>
+            <input type="date" id="rtc-date" name="rtcDate" required>
+
+            <label for="rtc-time">Set RTC Time:</label>
+            <input type="time" id="rtc-time" name="rtcTime" required>
+
+            <button type="submit"><img src="icons/alarm-clock-16.png" alt="Back Icon">  Set RTC</button>
+        </form>
+
+        <button type="submit" onclick="window.location.href='/'">
+            <img src="icons/arrow-90-16.png" alt="Back Icon"> Back to Welcome
+        </button>
+    </div>
+    <script>
+        // Fetch saved settings from ESP32
+        async function fetchSavedSettings() {
+            try {
+                // Fetch saved alarm and RTC settings in one request
+                const settingsResponse = await fetch('/getSettings');
+                if (settingsResponse.ok) {
+                    const settingsData = await settingsResponse.json();
+    
+                    // Populate alarm settings
+                    document.getElementById('alarm-date').value = settingsData.alarm?.date || '';
+                    document.getElementById('alarm-time').value = settingsData.alarm?.time || '';
+    
+                    // Populate RTC settings
+                    document.getElementById('rtc-date').value = settingsData.rtc?.date || '';
+                    document.getElementById('rtc-time').value = settingsData.rtc?.time || '';
+                }
+            } catch (error) {
+                console.error('Error fetching saved settings:', error);
+            }
+        }
+    
+        // Handle RTC Form Submit
+        document.getElementById('rtc-form').addEventListener('submit', async (event) => {
+            event.preventDefault();  // Prevent the default form submission
+    
+            const rtcDate = document.getElementById('rtc-date').value;
+            const rtcTime = document.getElementById('rtc-time').value;
+    
+            const requestBody = {
+                rtcDate: rtcDate,
+                rtcTime: rtcTime
+            };
+    
+            try {
+                const response = await fetch('/setRTC', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+    
+                if (response.ok) {
+                    const result = await response.json();
+                    alert('RTC set successfully!');
+                } else {
+                    alert('Failed to set RTC time.');
+                }
+            } catch (error) {
+                console.error('Error setting RTC time:', error);
+                alert('Error setting RTC time.');
+            }
+        });
+    
+        // Handle Alarm Form Submit
+        document.getElementById('alarm-form').addEventListener('submit', async (event) => {
+            event.preventDefault();  // Prevent the default form submission
+    
+            const alarmDate = document.getElementById('alarm-date').value;
+            const alarmTime = document.getElementById('alarm-time').value;
+    
+            const requestBody = {
+                alarmDate: alarmDate,
+                alarmTime: alarmTime
+            };
+    
+            try {
+                const response = await fetch('/setAlarm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+    
+                if (response.ok) {
+                    const result = await response.json();
+                    alert('Alarm set successfully!');
+                } else {
+                    alert('Failed to set Alarm time.');
+                }
+            } catch (error) {
+                console.error('Error setting Alarm time:', error);
+                alert('Error setting Alarm time.');
+            }
+        });
+    
+        // Call the function when the page loads
+        document.addEventListener('DOMContentLoaded', fetchSavedSettings);
+    </script>
+    </body>
+    </html>
+    

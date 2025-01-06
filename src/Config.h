@@ -1,92 +1,83 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// ==================================================
-// Device Configuration
-// ==================================================
 
-/**
- * @brief Device configuration details including name, ID, and firmware version.
- */
-#define DEVICE_NAME             "EcoGrow"           ///< @brief The name of the device.
-#define DEVICE_ID               "EcoGrow001"        ///< @brief Unique identifier for the device.
-#define FIRMWARE_VERSION        "FIRVER"            ///< @brief Firmware version identifier.
-#define DEFAULT_FIRMWARE_VERSION "1.0.0"            ///< @brief Default firmware version if not updated.
 
 // ==================================================
-// Wi-Fi Configuration
+// Device Keys
 // ==================================================
-#define TIME_UTC_OFFSET 3600
+#define DEVICE_NAME "DEVNAM"                           ///< Name of the device
+#define DEVICE_ID "DEVID"                              ///< Unique identifier for the device
 
-/**
- * @brief Default Wi-Fi Access Point (AP) credentials.
- */
-#define DEFAULT_AP_SSID         "EcoGrow"           ///< @brief Default SSID for the Access Point mode.
-#define DEFAULT_AP_PASSWORD     "0123456789"        ///< @brief Default password for the Access Point mode.
+#define APWIFIMODE_FLAG "STRAP"                        ///< Indicates if the device is in AP (Access Point) Wi-Fi mode
+#define WIFISSID "WFSSID"                             ///< Wi-Fi network SSID key
+#define WIFIPASS "WFPASS"                             ///< Wi-Fi network password key
+#define RESET_FLAG "RSTFLG"                               ///< Key to trigger a reset operation
 
-/**
- * @brief Default Wi-Fi credentials for connecting to a network.
- */
-#define DEFAULT_WIFI_SSID       "EcoGrow"           ///< @brief Default SSID for client Wi-Fi connection.
-#define DEFAULT_WIFI_PASSWORD   "0123456789"        ///< @brief Default password for client Wi-Fi connection.
+// RTC Time and Date Keys (Unix Format)
+#define CURRENT_TIME_SAVED "CURTIM"                    ///< Key for saving the current time
+#define LAST_TIME_SAVED "LSTTIM"                       ///< Key for saving the last recorded time
+#define ALERT_TIMESTAMP_SAVED "ALRTIM"                       ///< Key for saving the alert time unix
+#define ALERT_DATE_ "DATE"                       ///< Key for saving the alert time unix
+#define ALERT_TIME_ "TIME"                       ///< Key for saving the alert time unix
+#define LED_STATE "LEDSTA"                             ///< Key for saving the LED state
 
+#define FIRST_TIME "FRSTIM"                             ///< Key for saving first time flag
+
+#define WIFI_TIMEOUT 120000  // Timeout period set to 2 minutes (120,000 milliseconds)
+#define TIME_ERROR_THRESHOLD 5400
+#define DEEPSLEEP_TIME 3600000000
 // ==================================================
-// Debug and Serial Configuration
-// ==================================================
-
-/**
- * @brief Debug mode configuration.
- * Set to 1 to enable debug output, 0 to disable.
- */
-#define DEBUGMODE               1                   ///< @brief Enable or disable debug mode (1: enabled, 0: disabled).
-
-/**
- * @brief Serial communication baud rate.
- */
-#define SERIAL_BAUD_RATE        115200              ///< @brief Baud rate for serial communication, typically 115200.
-
-// ==================================================
-// Firmware Update Configuration
+// Default Values
 // ==================================================
 
-/**
- * @brief Interval for checking firmware updates.
- * Time is in milliseconds (1 hour = 3600000 ms).
- */
-#define DEVICE_UPDATE_CHECK_INTERVAL 3600000000      ///< @brief Interval for firmware update check (every 1 hour).
+// Default Device Information
+#define DEFAULT_DEVICE_NAME "DefaultDevice"            ///< Default device name
+#define DEFAULT_DEVICE_ID "00000001"                   ///< Default unique identifier for the device
+
+// Default Wi-Fi Access Point (AP) Credentials
+#define DEFAULT_AP_SSID "ALARM DEVICE"                 ///< Default Access Point SSID
+#define DEFAULT_AP_PASSWORD "12345678"                 ///< Default Access Point password
+
+// Default Wi-Fi Credentials
+#define DEFAULT_WIFI_SSID "Techlancer"                 ///< Default Wi-Fi SSID
+#define DEFAULT_WIFI_PASSWORD "12345678"               ///< Default Wi-Fi password
+
+// Default RTC Values
+#define DEFAULT_CURRENT_TIME_SAVED 0        ///< Default current time (example in Unix timestamp format)
+#define DEFAULT_LAST_TIME_SAVED 0           ///< Default last time saved (example in Unix timestamp format)
+#define DEFAULT_LED_STATE false                        ///< Default LED state (e.g., "ON" or "OFF")
+#define DEFAULT_ALERT_TIME_SAVED 0  // Default alert time (e.g., Unix epoch)
+
+//Default Flag Device
+#define  DEFAULT_FIRST_TIME_FLAG 455
 
 // ==================================================
-// Hardware Configuration (GPIO Pins)
+// General Configuration
 // ==================================================
 
-/**
- * @brief GPIO pin assignments for switches and LEDs.
- */
-#define SWT_PIN01                 5                  ///< @brief GPIO pin number for Switch 1.
-#define SWT_PIN02                 0                  ///< @brief GPIO pin number for Switch 2.
-#define LED_PIN                 4                  ///< @brief GPIO pin number for LED (same as Switch 1 for simplicity).
+#define DEBUGMODE 1                                    ///< Debug mode flag (1 = enabled, 0 = disabled)
+#define SERIAL_BAUD_RATE 115200                        ///< Baud rate for serial communication
+#define CONFIG_PARTITION "config"                      ///< Configuration storage partition name
 
 // ==================================================
-// EEPROM Configuration
+// Pin Configuration
+// ==================================================
+#define LED_GREEN_PIN 4                                ///< Pin for the green LED (status indicator)
+#define BUZZ_PIN 14                                    ///< Pin for the buzzer (mode indicator)
+#define SWITCH_PIN 0                                  ///< Pin for the switch
+
+// ==================================================
+// Time config
 // ==================================================
 
-/**
- * @brief EEPROM related configuration including size and address assignments.
- */
-#define EEPROM_SIZE                     256        ///< @brief Total EEPROM size in bytes.
-
-// Time-related addresses
-#define TRIGGER_TIME_START_ADD           1          ///< @brief Start address for storing trigger time in EEPROM.
-#define LAST_STORED_TIME_START_ADD       50         ///< @brief Start address for storing the last stored time in EEPROM.
-#define SECOND_TIME_CHECK_ADD            100        ///< @brief Start address for storing second-time flag.
-
-// Wi-Fi credentials addresses
-#define WIFI_SSID_ADDR                   120        ///< @brief EEPROM address for storing Wi-Fi SSID.
-#define WIFI_PASS_ADDR                   180        ///< @brief EEPROM address for storing Wi-Fi password.
-
-// First-time/Second-time flags addresses
-#define FIRST_TIME_FLAG_ADD              171        ///< @brief Address for storing the first-time flag.
-#define FIRST_TIME_FLAG_VAL              109        ///< @brief Value for first-time flag.
-#define SECOND_TIME_FLAG_VAL             83         ///< @brief Value for second-time flag.
-
+// Time Offset (in seconds)
+#define TIMEOFFSET    3600  // Example: UTC+1 hour (3600 seconds)
+// Optional: NTP server for time synchronization (default is "pool.ntp.org")
+#define NTP_SERVER    "pool.ntp.org"
+// Optional: Update interval in milliseconds for NTP client (default is 60000 ms, or 1 minute)
+#define NTP_UPDATE_INTERVAL 60000
+// ==================================================
+// End of Configuration
+// ==================================================
 #endif // CONFIG_H
