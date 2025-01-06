@@ -254,8 +254,12 @@ void WiFiManager::setServerCallback() {
                 configManager->PutString(ALERT_DATE_, alarmDate);
                 configManager->PutString(ALERT_TIME_, alarmTime);
                 configManager->PutULong64(ALERT_TIMESTAMP_SAVED, alarmTimeUnix);
-                configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());// save time before restarting
-                configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());// save time before restarting
+                // Debug output before saving values
+                Serial.println("#########################################");
+                Serial.println("Saving Alert Date: " + alarmDate);
+                Serial.println("Saving Alert Time: " + alarmTime);
+                Serial.println("Saving Alert Unix Timestamp: " + String(alarmTimeUnix));
+                Serial.println("#########################################");
                 esp_task_wdt_reset();  // Reset the watchdog timer to prevent a system reset
                 configManager->ResetAPFLag();
 
@@ -338,6 +342,13 @@ void WiFiManager::setServerCallback() {
                 configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());
                 configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());
                 configManager->ResetAPFLag();
+
+                // Debug output for current and last saved time
+                Serial.println("################################################################");
+                Serial.println("Current Time (Unix): " + String(RTC->getUnixTime()));
+                Serial.println("Last Saved Time (Unix): " + String(RTC->getUnixTime()));
+                Serial.println("################################################################");
+
 
                 // Respond with success message
                 String successResponse = "{\"success\":true}";

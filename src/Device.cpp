@@ -12,6 +12,7 @@ Device::Device() {
 void Device::begin() {
     
     pinMode(LED_GREEN_PIN, OUTPUT);// Initialize the LED pin as output
+    digitalWrite(LED_GREEN_PIN,LOW);
     pinMode(SWITCH_PIN, INPUT_PULLUP);  // Assuming the switch is connected to ground
     pinMode(BUZZ_PIN, OUTPUT);// Initialize the buzzer pin as output
     digitalWrite(BUZZ_PIN, LOW);// Set initial state for buzzer (off)
