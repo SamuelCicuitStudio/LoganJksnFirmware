@@ -6,10 +6,11 @@
 RTCManager::RTCManager(struct tm* timeinfo) {
     this->timeinfo = timeinfo;  // Store the pointer to the timeinfo struct
     update();  // Initialize time and date values
-    Serial.print("Time: ");
-    Serial.println(formattedTime);  // Print formatted time (HH:MM)
-    Serial.print("Date: ");
-    Serial.println(formattedDate);  // Print formatted date (YYYY-MM-DD)
+    if (DEBUGMODE)Serial.print("Last ON Time");
+    if (DEBUGMODE)Serial.print("Time: ");
+    if (DEBUGMODE)Serial.println(formattedTime);  // Print formatted time (HH:MM)
+    if (DEBUGMODE)Serial.print("Date: ");
+    if (DEBUGMODE)Serial.println(formattedDate);  // Print formatted date (YYYY-MM-DD)
 }
 
 // Set the system time from a Unix timestamp (seconds since Jan 1, 1970)
@@ -56,7 +57,7 @@ void RTCManager::update() {
         sprintf(dateString, "%04d-%02d-%02d", timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday);
         formattedDate = String(dateString);
     } else {
-        Serial.println("Failed to get local time.");
+        if (DEBUGMODE)Serial.println("Failed to get local time.");
     }
 }
 

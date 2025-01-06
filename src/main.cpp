@@ -14,7 +14,6 @@ void AdminSetupMode();  // Starts the Wi-Fi setup mode and waits for a connectio
 void connectAndUpdateTime();  // Connects to Wi-Fi and updates RTC time from NTP server
 void PowerFailSafeMode();  // Manages power failure safe mode to correct RTC time
 void NormalMode();  // Handles the normal mode of device operation
-void setTime(struct tm* timeinfo);
 void setUnixTime(unsigned long timestamp);
 
 Preferences prefs;  // Create a Preferences object for storing configuration settings
@@ -27,37 +26,55 @@ WiFiManager *wifi = nullptr;      // Wi-Fi manager pointer
 Device *device = nullptr;         // Device pointer
 
 void setup() {
-    Serial.begin(SERIAL_BAUD_RATE);  // Start serial communication
-    prefs.begin(CONFIG_PARTITION, false);  // Open Preferences in read-write mode
-    Config = new ConfigManager(&prefs);  // Initialize ConfigManager instance with Preferences
+    // Start serial communication
+    Serial.begin(SERIAL_BAUD_RATE);  
+    
+    // Open Preferences in read-write mode
+    prefs.begin(CONFIG_PARTITION, false);  
+    
+    // Initialize ConfigManager instance with Preferences
+    Config = new ConfigManager(&prefs);  
     Config->begin();  // Initialize the ConfigManager
-
-    device = new Device();  // Create a Device instance
+    
+    // Create a Device instance and initialize it
+    device = new Device();  
     device->begin();  // Initialize the Device
     
-    
     // Set the system time using the alarm time (Unix timestamp)
-    setUnixTime(Config->GetULong64(CURRENT_TIME_SAVED, 0));
-
-    handleLEDFlagAndSleep();  // Check if the LED flag is set, and blink LED if necessary
+    setUnixTime(Config->GetULong64(CURRENT_TIME_SAVED, 0));  
     
-    RTC = new RTCManager(&timeInfo);  // Create an RTCManager instance
-
-    Config->CountdownDelay(5000);  // Countdown delay of 5 seconds before user action
-    if (device->isButtonPressed()!= false){ 
-        Serial.println("Entering Admin Mode");
+    // Check if the LED flag is set, and blink LED if necessary
+    handleLEDFlagAndSleep();  
+    
+    // Create an RTCManager instance
+    RTC = new RTCManager(&timeInfo);  
+    
+    // Countdown delay of 5 seconds before user action
+    Config->CountdownDelay(5000);  
+    
+    // Check if the button is pressed
+    if (device->isButtonPressed() != false) { 
+        if (DEBUGMODE) {
+            Serial.println("Entering Admin Mode");
+        }
         AdminSetupMode();
-        goto out;
-        }  // Enter setup mode if the button is not pressed
+        goto out;  // Enter setup mode if the button is pressed
+    }  
 
-    PowerFailSafeMode();  // Handle power failure safe mode to correct RTC time via Wi-Fi
-    out:;
+    // Handle power failure safe mode to correct RTC time via Wi-Fi
+    PowerFailSafeMode();  
+
+out:;
 }
 
 void loop() {
+    // Reset the watchdog timer to prevent system reset
     esp_task_wdt_reset();
-    delay(50); // Small delay to reduce CPU usage
+    
+    // Small delay to reduce CPU usage
+    delay(50);  
 }
+
 
 /**
  * @brief Retrieves the current state of the LED from the configuration.
@@ -108,8 +125,7 @@ void handleLEDFlagAndSleep() {
  */
 void AdminSetupMode() {
     wifi = new WiFiManager(Config, RTC, device);  // Create a Wi-Fi Manager instance
-    // Try to start Wi-Fi
-    wifi->begin();   
+    wifi->begin();// Try to start Wi-Fi   
 }
 /**
  * @brief Attempts to connect to Wi-Fi and update the time from the NTP server.
@@ -133,19 +149,19 @@ void connectAndUpdateTime() {
 
         // If Wi-Fi is successfully connected
         if (wifi->isStillConnected()) {
-            Serial.println("Initialize the time manager only if Wi-Fi is connected");
+            if (DEBUGMODE)Serial.println("Initialize the time manager only if Wi-Fi is connected");
             Time->initialize(); // Initialize the time manager only if Wi-Fi is connected
 
-            Serial.println("Update the RTC time from the NTP server");
+            if (DEBUGMODE)Serial.println("Update the RTC time from the NTP server");
             if (Time->UpdateTimeFromNTP()) { // Update the RTC time from the NTP server
-                Serial.println("Start Normal Mode");
+                if (DEBUGMODE)Serial.println("Start Normal Mode");
                 int unix = RTC->getUnixTime();
                 Config->PutULong64(CURRENT_TIME_SAVED, unix);
                 Config->PutULong64(LAST_TIME_SAVED, unix);
                 NormalMode(); // Make normal mode
                 return;       // Exit the function after successful setup
             } else {
-                Serial.println("Failed to update time from NTP. Retrying...");
+                if (DEBUGMODE)Serial.println("Failed to update time from NTP. Retrying...");
                 attempts++;      // Increment attempt counter
                 delay(1000);     // Wait for 1 second before the next attempt
                 continue;     // Retry if time update fails
@@ -157,7 +173,7 @@ void connectAndUpdateTime() {
     }
 
     // If connection fails after max attempts, restart the device
-    Serial.println("Wi-Fi connection failed after 10 attempts. Restarting...");
+    if (DEBUGMODE)Serial.println("Wi-Fi connection failed after 10 attempts. Restarting...");
     Config->RestartSysDelay(5000); // Restart the system after 5 seconds
 }
 
@@ -170,21 +186,26 @@ void connectAndUpdateTime() {
  * If the conditions do not meet, it sets the system mode to PowerFail and attempts to connect to Wi-Fi and update the time.
  */
 void PowerFailSafeMode() {
-    Serial.println("Entering Power safe Mode");
+    if (DEBUGMODE)Serial.println("Entering Power safe Mode");
     // If the wake-up cause is not a timer or if the time difference exceeds the threshold
     if (device->getWakeUpCause() == 0) {
         // Set the system mode to Normal if the condition is met
-        Serial.println(" Wakeup by timer Entering Normal mode");
+        if (DEBUGMODE)Serial.println(" Wakeup by timer Entering Normal mode");
         RTC->getUnixTime();
-        Serial.println("Adding 1 hour.");
+        
         RTC->setUnixTime(RTC->getUnixTime() + (DEEPSLEEP_TIME/1000));
+        if (DEBUGMODE)Serial.print("#############################################################");
+        if (DEBUGMODE)Serial.print("Adding: ");
+        if (DEBUGMODE)Serial.print((DEEPSLEEP_TIME/1000));
+        if (DEBUGMODE)Serial.println(" seconds.");
+        if (DEBUGMODE)Serial.print("#############################################################");
         Config->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());  // Save the current time
         Config->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());  // Save the last checked time
         NormalMode();// go normal mode.
 
     } else {
         // Set the system mode to PowerFail and connect to Wi-Fi
-        Serial.println("Fixing Time");
+        if (DEBUGMODE)Serial.println("Fixing Time");
         connectAndUpdateTime();
     }
 }
@@ -205,19 +226,19 @@ void NormalMode() {
     long AlarmSavedTime = Config->GetULong64(ALERT_TIMESTAMP_SAVED, 0);  // Retrieve the last saved alarm time
     
     // Check if the current time is greater than or equal to the alarm saved time
-    Serial.println("Check if the current time");
+    if (DEBUGMODE)Serial.println("Check if the current time");
     if (currentTime >= AlarmSavedTime) {
         // If the current time is past the alarm time, update the LED state flag to true
-        Serial.println("Set Led FLag");
+        if (DEBUGMODE)Serial.println("Set Led FLag");
         Config->PutBool(LED_STATE, true);  // Set the LED state to ON
         
         // Handle LED flag and sleep behavior (e.g., blink or hold the LED on before sleeping)
-        Serial.println("Handle LED flag and sleep behavior");
+        if (DEBUGMODE)Serial.println("Handle LED flag and sleep behavior");
         handleLEDFlagAndSleep();  // This function manages LED operation and transitions to sleep mode
         
     } else {
         // If the current time is less than the alarm time, update the saved time
-        Serial.println("update the saved time");
+        if (DEBUGMODE)Serial.println("update the saved time");
         Config->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());  // Save the current time
         Config->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());  // Save the last checked time
         
@@ -226,18 +247,22 @@ void NormalMode() {
     }
 }
 
-// Set time to internal RTC memory
-void setTime(struct tm* timeinfo) {
-  // This sets the time using internal RTC memory
-  struct timeval now = { 0 };
-  now.tv_sec = mktime(timeinfo);  // Convert struct tm to seconds
-  settimeofday(&now, NULL);       // Set the time
-}
-
-void setUnixTime(unsigned long timestamp) {
-    struct timeval tv;
-    tv.tv_sec = timestamp;  // Set seconds since the Unix epoch
-    tv.tv_usec = 0;  // No microseconds
-    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
-    settimeofday(&tv, nullptr); // Set system time
+/**
+ * @brief Sets the system time to a specified Unix timestamp.
+ * 
+ * This function sets the system time to the provided Unix timestamp. The timestamp is in seconds since the Unix epoch 
+ * (January 1, 1970). The function also resets the system watchdog timer to prevent a system reset while setting the time.
+ * 
+ * @param timestamp The Unix timestamp (seconds since epoch) to set the system time to.
+ * 
+ * @note The microsecond part is set to 0 as the `tv_usec` field is not used in this case.
+ * 
+ * @warning Ensure that the timestamp is valid and within an appropriate range for your application.
+ */
+void setUnixTime(unsigned long timestamp) { 
+    struct timeval tv;        ///< Struct to hold the time value
+    tv.tv_sec = timestamp;    ///< Set seconds since the Unix epoch
+    tv.tv_usec = 0;           ///< No microseconds
+    esp_task_wdt_reset();     ///< Reset the watchdog timer to prevent a system reset
+    settimeofday(&tv, nullptr); ///< Set system time
 }

@@ -66,9 +66,9 @@ void Device::controlBuzzer(bool state) {
 void Device::deepSleep(unsigned long sleepDuration) {
     // Print debug information to Serial
 
-    Serial.print("The system will sleep for ");
-    Serial.print(sleepDuration / 1000); // Convert milliseconds to seconds
-    Serial.println(" seconds.");
+    if (DEBUGMODE)Serial.print("The system will sleep for ");
+    if (DEBUGMODE)Serial.print(sleepDuration / 1000); // Convert milliseconds to seconds
+    if (DEBUGMODE)Serial.println(" seconds.");
 
     // Convert the sleep duration from milliseconds to microseconds
     unsigned long sleepTimeInMicroseconds = sleepDuration * 1000;
@@ -80,8 +80,8 @@ void Device::deepSleep(unsigned long sleepDuration) {
     // esp_sleep_enable_ext0_wakeup(GPIO_NUM_XX, HIGH); // Example GPIO wakeup
 
     // Flush Serial buffer and notify before entering sleep
-    Serial.println("Entering deep sleep now...");
-    Serial.flush();
+    if (DEBUGMODE)Serial.println("Entering deep sleep now...");
+    if (DEBUGMODE)Serial.flush();
     delay(100); // Give time for Serial output to complete
 
     // Enter deep sleep

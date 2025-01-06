@@ -68,8 +68,7 @@ public:
 
     void RemoveKey(const char* key);  // Remove a specific key
     void ClearKey(); 
-    bool GetAPFLag();                 // return ap flag
-    void ResetAPFLag();//reset AP flag
+
 
     // System control methods
     void RestartSysDelay(unsigned long delayTime);  // Restart system with delay
@@ -80,8 +79,6 @@ public:
     // Preferences management
     void startPreferencesReadWrite();  // Open preferences in read-write mode
     void startPreferencesRead();       // Open preferences in read-only mode
-
-    void SetAPFLag();  // Set the AP flag
 
 private:
     // Private utility methods for internal use only

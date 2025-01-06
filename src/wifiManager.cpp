@@ -39,7 +39,6 @@ void WiFiManager::begin() {
         Serial.println("WiFiManager: Begin initialization");
     };
         if(device->isButtonPressed() != false){
-        configManager->ResetAPFLag();
             startAccessPoint();
     };
 
@@ -99,7 +98,6 @@ void WiFiManager::connectToWiFi() {
             
              if (DEBUGMODE) {
                 Serial.println("WiFiManager: Failed to connect to WiFi.\nSwitching to AP mode.");
-                configManager->SetAPFLag(); // Set flag to start in AP mode next time
                 esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
                 configManager->RestartSysDelay(3000);
             }
@@ -209,11 +207,11 @@ void WiFiManager::setServerCallback() {
                 }
 
                 // Debug output
-                Serial.println("################################");
-                Serial.println("Alarm Time Set by USER");
-                Serial.println("Alarm Date: " + alarmDate);
-                Serial.println("Alarm Time: " + alarmTime);
-                Serial.println("################################");
+                if (DEBUGMODE)Serial.println("################################");
+                if (DEBUGMODE)Serial.println("Alarm Time Set by USER");
+                if (DEBUGMODE)Serial.println("Alarm Date: " + alarmDate);
+                if (DEBUGMODE)Serial.println("Alarm Time: " + alarmTime);
+                if (DEBUGMODE)Serial.println("################################");
 
                 // Manually parse the date and time strings (format: "YYYY-MM-DD" and "HH:MM")
                 int year = alarmDate.substring(0, 4).toInt();
@@ -224,13 +222,13 @@ void WiFiManager::setServerCallback() {
                 int second = 0;
 
                 // Debug output
-                Serial.println("Parsed Alarm Date and Time:");
-                Serial.println("Year: " + String(year));
-                Serial.println("Month: " + String(month));
-                Serial.println("Day: " + String(day));
-                Serial.println("Hour: " + String(hour));
-                Serial.println("Minute: " + String(minute));
-                Serial.println("Second: " + String(second));
+                if (DEBUGMODE)Serial.println("Parsed Alarm Date and Time:");
+                if (DEBUGMODE)Serial.println("Year: " + String(year));
+                if (DEBUGMODE)Serial.println("Month: " + String(month));
+                if (DEBUGMODE)Serial.println("Day: " + String(day));
+                if (DEBUGMODE)Serial.println("Hour: " + String(hour));
+                if (DEBUGMODE)Serial.println("Minute: " + String(minute));
+                if (DEBUGMODE)Serial.println("Second: " + String(second));
 
                 // Create a tm struct and set its fields
                 struct tm timeStruct = {};
@@ -255,13 +253,12 @@ void WiFiManager::setServerCallback() {
                 configManager->PutString(ALERT_TIME_, alarmTime);
                 configManager->PutULong64(ALERT_TIMESTAMP_SAVED, alarmTimeUnix);
                 // Debug output before saving values
-                Serial.println("#########################################");
-                Serial.println("Saving Alert Date: " + alarmDate);
-                Serial.println("Saving Alert Time: " + alarmTime);
-                Serial.println("Saving Alert Unix Timestamp: " + String(alarmTimeUnix));
-                Serial.println("#########################################");
+                if (DEBUGMODE)Serial.println("#########################################");
+                if (DEBUGMODE)Serial.println("Saving Alert Date: " + alarmDate);
+                if (DEBUGMODE)Serial.println("Saving Alert Time: " + alarmTime);
+                if (DEBUGMODE)Serial.println("Saving Alert Unix Timestamp: " + String(alarmTimeUnix));
+                if (DEBUGMODE)Serial.println("#########################################");
                 esp_task_wdt_reset();  // Reset the watchdog timer to prevent a system reset
-                configManager->ResetAPFLag();
 
                 // Respond with success message
                 String successResponse = "{\"success\":true}";
@@ -310,11 +307,11 @@ void WiFiManager::setServerCallback() {
                 }
 
                 // Debug output
-                Serial.println("################################");
-                Serial.println("RTC Time Set by USER");
-                Serial.println("RTC Date: " + rtcDate);
-                Serial.println("RTC Time: " + rtcTime);
-                Serial.println("################################");
+                if (DEBUGMODE)Serial.println("################################");
+                if (DEBUGMODE)Serial.println("RTC Time Set by USER");
+                if (DEBUGMODE)Serial.println("RTC Date: " + rtcDate);
+                if (DEBUGMODE)Serial.println("RTC Time: " + rtcTime);
+                if (DEBUGMODE)Serial.println("################################");
 
                 // Combine date and time into a single string
                 String dateTimeString = rtcDate + " " + rtcTime;
@@ -329,25 +326,24 @@ void WiFiManager::setServerCallback() {
                 int second = 0;
 
                 // Debug output
-                Serial.println("Parsed Date and Time:");
-                Serial.println("Year: " + String(year));
-                Serial.println("Month: " + String(month));
-                Serial.println("Day: " + String(day));
-                Serial.println("Hour: " + String(hour));
-                Serial.println("Minute: " + String(minute));
-                Serial.println("Second: " + String(second));
+                if (DEBUGMODE)Serial.println("Parsed Date and Time:");
+                if (DEBUGMODE)Serial.println("Year: " + String(year));
+                if (DEBUGMODE)Serial.println("Month: " + String(month));
+                if (DEBUGMODE)Serial.println("Day: " + String(day));
+                if (DEBUGMODE)Serial.println("Hour: " + String(hour));
+                if (DEBUGMODE)Serial.println("Minute: " + String(minute));
+                if (DEBUGMODE)Serial.println("Second: " + String(second));
 
                 // Set the RTC time using the parsed values
                 RTC->setRTCTime(year, month, day, hour, minute, second);
                 configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());
                 configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());
-                configManager->ResetAPFLag();
 
                 // Debug output for current and last saved time
-                Serial.println("################################################################");
-                Serial.println("Current Time (Unix): " + String(RTC->getUnixTime()));
-                Serial.println("Last Saved Time (Unix): " + String(RTC->getUnixTime()));
-                Serial.println("################################################################");
+                if (DEBUGMODE)Serial.println("################################################################");
+                if (DEBUGMODE)Serial.println("Current Time (Unix): " + String(RTC->getUnixTime()));
+                if (DEBUGMODE)Serial.println("Last Saved Time (Unix): " + String(RTC->getUnixTime()));
+                if (DEBUGMODE)Serial.println("################################################################");
 
 
                 // Respond with success message
@@ -505,7 +501,6 @@ void WiFiManager::handleSaveWiFi(AsyncWebServerRequest* request) {
             sprintf(text, "WiFiManager: Saving Wifi Credentials...");
             configManager->PutString(WIFISSID, ssid);
             configManager->PutString(WIFIPASS, password);
-            configManager->ResetAPFLag();
             request->send(SPIFFS, "/thankyou_page.html", "text/html");
             sprintf(text, "WiFiManager: Device Restarting in 3 Sec");
             configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());// save time before restarting

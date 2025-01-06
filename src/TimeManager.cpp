@@ -45,7 +45,7 @@ bool TimeManager::UpdateTimeFromNTP() {
     
     // Update the time from the NTP server
     if (!timeClient.update()) {
-        Serial.println("Failed to fetch time from NTP server.");
+        if (DEBUGMODE)Serial.println("Failed to fetch time from NTP server.");
         return false; // Return false if the NTP update fails
     }
     
@@ -54,32 +54,32 @@ bool TimeManager::UpdateTimeFromNTP() {
     
     // Validate the NTP time (e.g., ensure it's a reasonable value)
     if (ntpTime < 946684800) { // Unix time for 2000-01-01 00:00:00
-        Serial.println("Invalid time fetched from NTP server.");
+        if (DEBUGMODE)Serial.println("Invalid time fetched from NTP server.");
         return false; // Return false if the time is invalid
     }
     
-    Serial.print("Time fetched from NTP (Unix): ");
-    Serial.println(ntpTime);
+    if (DEBUGMODE)Serial.print("Time fetched from NTP (Unix): ");
+    if (DEBUGMODE)Serial.println(ntpTime);
     
     // Convert Unix time to human-readable format
     time_t rawTime = ntpTime;               // Convert to time_t
     struct tm *timeInfo = gmtime(&rawTime); // Convert to UTC time structure
 
-    Serial.println("################################");
-    Serial.print("Time fetched from NTP (Human-readable UTC): ");
-    Serial.printf("%04d-%02d-%02d %02d:%02d:%02d\n", 
+    if (DEBUGMODE)Serial.println("################################");
+    if (DEBUGMODE)Serial.print("Time fetched from NTP (Human-readable UTC): ");
+    if (DEBUGMODE)Serial.printf("%04d-%02d-%02d %02d:%02d:%02d\n", 
                   timeInfo->tm_year + 1900, 
                   timeInfo->tm_mon + 1, 
                   timeInfo->tm_mday, 
                   timeInfo->tm_hour, 
                   timeInfo->tm_min, 
                   timeInfo->tm_sec);
-    Serial.println("################################");
+    if (DEBUGMODE)Serial.println("################################");
 
     // Update the RTC with the fetched time
-    Serial.println("Updating RTC with the fetched time...");
+    if (DEBUGMODE)Serial.println("Updating RTC with the fetched time...");
     RTC->setUnixTime(ntpTime);
-    Serial.println("RTC successfully updated.");
+    if (DEBUGMODE)Serial.println("RTC successfully updated.");
     
     return true; // Return true if the time was successfully fetched and updated
 }

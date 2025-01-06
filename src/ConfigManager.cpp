@@ -162,7 +162,7 @@ void ConfigManager::startPreferencesReadWrite() {
  */
 void ConfigManager::startPreferencesRead() {
     preferences->begin(CONFIG_PARTITION, true);  // true = read-only mode
-    Serial.println("Preferences opened in read mode.");
+    if (DEBUGMODE)Serial.println("Preferences opened in read mode.");
 }
 
 /**
@@ -248,7 +248,6 @@ void ConfigManager::initializeDefaults() {
  */
 void ConfigManager::initializeVariables() {
     // Assign default values to configuration variables
-    PutBool(APWIFIMODE_FLAG, true);  // Default AP Wi-Fi mode flag
     PutString(WIFISSID, DEFAULT_WIFI_SSID);  // Default Wi-Fi SSID
     PutString(WIFIPASS, DEFAULT_WIFI_PASSWORD);  // Default Wi-Fi password
     PutBool(RESET_FLAG, false);  // Reset flag is set to false after initialization
@@ -265,7 +264,6 @@ void ConfigManager::initializeVariables() {
     PutString(ALERT_TIME_, "11:18");  // Default time saved
 
     PutBool(LED_STATE, DEFAULT_LED_STATE);  // Default LED state
-    PutInt(FIRST_TIME,DEFAULT_FIRST_TIME_FLAG);
     // Add any additional configurations here if needed
 }
 
@@ -490,35 +488,5 @@ void ConfigManager::RemoveKey(const char * key) {
     }
 }
 
-/**
- * @brief Sets the AP flag in the preferences.
- * 
- * This function removes the existing "strAP" key and sets it to 
- * true. It introduces a delay after updating the preferences.
- */
-void ConfigManager::SetAPFLag() {
-    RemoveKey(APWIFIMODE_FLAG);
-    preferences->putBool(APWIFIMODE_FLAG, true);
-    delay(100);
-}
 
-/**
- * @brief Resets the AP flag in the preferences.
- * 
- * This function removes the existing "strAP" key and sets it to 
- * true. It introduces a delay after updating the preferences.
- */
-void ConfigManager::ResetAPFLag() {
-    RemoveKey(APWIFIMODE_FLAG);
-    preferences->putBool(APWIFIMODE_FLAG, false);
-    delay(100);
-};
-
-/**
- * @brief Returns the AP flag in the preferences.
- * 
- */
-bool ConfigManager::GetAPFLag() {
-    return preferences->getBool(APWIFIMODE_FLAG, true);
-}
 
