@@ -38,27 +38,10 @@ void WiFiManager::begin() {
         Serial.println("SPIFFS mounted successfully");
         Serial.println("WiFiManager: Begin initialization");
     };
-    delay(2000);
-    if(device->isButtonPressed()){
+        if(device->isButtonPressed() != false){
         configManager->ResetAPFLag();
+            startAccessPoint();
     };
-    // Determine the mode to start in (AP or WiFi)
-    bool startAP = configManager->GetAPFLag();
-    
-    // Formatted message
-    char text[50]; // Ensure this is large enough to hold your formatted string
-    sprintf(text, "WiFiManager: Start mode - %s\n", startAP ? "AP" : "WiFi");
-    if (DEBUGMODE) {
-        Serial.printf("WiFiManager: Start mode - %s\n", startAP ? "AP" : "WiFi");
-    }
-
-// Start in access point mode or connect to WiFi based on the flag
-if (startAP) {
-    startAccessPoint();
-} else {
-    connectToWiFi();
-    
-}
 
 }
 
@@ -226,8 +209,11 @@ void WiFiManager::setServerCallback() {
                 }
 
                 // Debug output
+                Serial.println("################################");
+                Serial.println("Alarm Time Set by USER");
                 Serial.println("Alarm Date: " + alarmDate);
                 Serial.println("Alarm Time: " + alarmTime);
+                Serial.println("################################");
 
                 // Manually parse the date and time strings (format: "YYYY-MM-DD" and "HH:MM")
                 int year = alarmDate.substring(0, 4).toInt();
@@ -268,6 +254,8 @@ void WiFiManager::setServerCallback() {
                 configManager->PutString(ALERT_DATE_, alarmDate);
                 configManager->PutString(ALERT_TIME_, alarmTime);
                 configManager->PutULong64(ALERT_TIMESTAMP_SAVED, alarmTimeUnix);
+                configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());// save time before restarting
+                configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());// save time before restarting
                 esp_task_wdt_reset();  // Reset the watchdog timer to prevent a system reset
                 configManager->ResetAPFLag();
 
@@ -318,8 +306,11 @@ void WiFiManager::setServerCallback() {
                 }
 
                 // Debug output
+                Serial.println("################################");
+                Serial.println("RTC Time Set by USER");
                 Serial.println("RTC Date: " + rtcDate);
                 Serial.println("RTC Time: " + rtcTime);
+                Serial.println("################################");
 
                 // Combine date and time into a single string
                 String dateTimeString = rtcDate + " " + rtcTime;
@@ -430,11 +421,12 @@ void WiFiManager::handleRestart(AsyncWebServerRequest* request) {
 
     // Send the JavaScript response to the client
     request->send(200, "text/html", response);
-
+    configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());// save time before restarting
+    configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());// save time before restarting
     // Trigger the system restart
     esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
     delay(1000);  // Wait briefly
-    configManager->RestartSysDelay(4000);  // Restart the system after 4 seconds
+    configManager->RestartSysDelayDown(4000);  // Restart the system after 4 seconds
 }
 
 
@@ -505,6 +497,8 @@ void WiFiManager::handleSaveWiFi(AsyncWebServerRequest* request) {
             configManager->ResetAPFLag();
             request->send(SPIFFS, "/thankyou_page.html", "text/html");
             sprintf(text, "WiFiManager: Device Restarting in 3 Sec");
+            configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());// save time before restarting
+            configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());// save time before restarting
             configManager->RestartSysDelay(3000);
         } else {
             request->send(400, "text/plain", "Invalid SSID or Password.");

@@ -73,6 +73,7 @@ public:
 
     // System control methods
     void RestartSysDelay(unsigned long delayTime);  // Restart system with delay
+    void RestartSysDelayDown(unsigned long delayTime);  // Restart system with delay
     void simulatePowerDown();  // Simulate power down for testing
     void CountdownDelay(unsigned long delayTime);
 

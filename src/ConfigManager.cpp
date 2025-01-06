@@ -35,7 +35,7 @@ ConfigManager::~ConfigManager() {
  * 
  * @param delayTime Time in milliseconds to wait before restarting the device.
  */
-void ConfigManager::RestartSysDelay(unsigned long delayTime) {
+void ConfigManager::RestartSysDelayDown(unsigned long delayTime) {
     unsigned long startTime = millis();  // Record the start time
 
     if (DEBUGMODE) {
@@ -59,6 +59,43 @@ void ConfigManager::RestartSysDelay(unsigned long delayTime) {
         Serial.println("Restarting now...");
     }
     simulatePowerDown();  // Simulate power down before restart
+    
+}
+/**
+ * @brief Restarts the system after a specified delay.
+ * 
+ * This function initiates a countdown before restarting the device. 
+ * During the countdown, it prints the remaining time and a series of '#' 
+ * characters for visibility. It also resets the watchdog timer to prevent 
+ * the system from resetting prematurely.
+ * 
+ * @param delayTime Time in milliseconds to wait before restarting the device.
+ */
+void ConfigManager::RestartSysDelay(unsigned long delayTime) {
+    unsigned long startTime = millis();  // Record the start time
+
+    if (DEBUGMODE) {
+        Serial.println("################################");
+        Serial.print("Restarting the Device in: ");
+        Serial.print(delayTime / 1000);  // Convert delayTime to seconds
+        Serial.println(" Sec");
+    }
+
+    // Ensure 32 '#' are printed after the countdown
+    if (DEBUGMODE) {
+        for (int i = 0; i < 32; i++) {  // Print 32 '#' characters
+            Serial.print("#");
+            delay(125);  // Delay for visibility of each '#' character
+            esp_task_wdt_reset();  // Reset watchdog timer
+        }
+        Serial.println();  // Move to the next line after printing
+    }
+
+    if (DEBUGMODE) {
+        Serial.println("Restarting now...");
+    }
+    //simulatePowerDown();  // Simulate power down before restart
+     ESP.restart();
 }
 
 /**

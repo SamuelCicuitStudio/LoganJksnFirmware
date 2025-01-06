@@ -26,7 +26,7 @@
 
 #define WIFI_TIMEOUT 120000  // Timeout period set to 2 minutes (120,000 milliseconds)
 #define TIME_ERROR_THRESHOLD 5400
-#define DEEPSLEEP_TIME 3600000000
+#define DEEPSLEEP_TIME 60000
 // ==================================================
 // Default Values
 // ==================================================
@@ -44,8 +44,8 @@
 #define DEFAULT_WIFI_PASSWORD "12345678"               ///< Default Wi-Fi password
 
 // Default RTC Values
-#define DEFAULT_CURRENT_TIME_SAVED 0        ///< Default current time (example in Unix timestamp format)
-#define DEFAULT_LAST_TIME_SAVED 0           ///< Default last time saved (example in Unix timestamp format)
+#define DEFAULT_CURRENT_TIME_SAVED 1736121600        ///< Default current time (example in Unix timestamp format)
+#define DEFAULT_LAST_TIME_SAVED 1736121600           ///< Default last time saved (example in Unix timestamp format)
 #define DEFAULT_LED_STATE false                        ///< Default LED state (e.g., "ON" or "OFF")
 #define DEFAULT_ALERT_TIME_SAVED 0  // Default alert time (e.g., Unix epoch)
 
@@ -63,7 +63,7 @@
 // ==================================================
 // Pin Configuration
 // ==================================================
-#define LED_GREEN_PIN 4                                ///< Pin for the green LED (status indicator)
+#define LED_GREEN_PIN 2                                ///< Pin for the green LED (status indicator)
 #define BUZZ_PIN 14                                    ///< Pin for the buzzer (mode indicator)
 #define SWITCH_PIN 0                                  ///< Pin for the switch
 

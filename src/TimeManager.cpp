@@ -34,12 +34,56 @@ void TimeManager::initialize() {
  * 
  * This function fetches the current time from the NTP server and updates
  * the internal RTC by setting it to the current time in Unix timestamp format.
+ * It also prints the fetched time in a human-readable format.
+ * 
+ * @return True if the time was successfully fetched and updated; false otherwise.
  */
-void TimeManager::UpdateTimeFromNTP() {
+bool TimeManager::UpdateTimeFromNTP() {
     esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
-    timeClient.update();  // Fetch the current time from NTP server
-    RTC->setUnixTime(getUnixTime());  // Set the internal RTC with the latest Unix timestamp
+    
+    Serial.println("Fetching time from NTP server...");
+    
+    // Update the time from the NTP server
+    if (!timeClient.update()) {
+        Serial.println("Failed to fetch time from NTP server.");
+        return false; // Return false if the NTP update fails
+    }
+    
+    // Get the updated Unix time
+    long ntpTime = getUnixTime();
+    
+    // Validate the NTP time (e.g., ensure it's a reasonable value)
+    if (ntpTime < 946684800) { // Unix time for 2000-01-01 00:00:00
+        Serial.println("Invalid time fetched from NTP server.");
+        return false; // Return false if the time is invalid
+    }
+    
+    Serial.print("Time fetched from NTP (Unix): ");
+    Serial.println(ntpTime);
+    
+    // Convert Unix time to human-readable format
+    time_t rawTime = ntpTime;               // Convert to time_t
+    struct tm *timeInfo = gmtime(&rawTime); // Convert to UTC time structure
+
+    Serial.println("################################");
+    Serial.print("Time fetched from NTP (Human-readable UTC): ");
+    Serial.printf("%04d-%02d-%02d %02d:%02d:%02d\n", 
+                  timeInfo->tm_year + 1900, 
+                  timeInfo->tm_mon + 1, 
+                  timeInfo->tm_mday, 
+                  timeInfo->tm_hour, 
+                  timeInfo->tm_min, 
+                  timeInfo->tm_sec);
+    Serial.println("################################");
+
+    // Update the RTC with the fetched time
+    Serial.println("Updating RTC with the fetched time...");
+    RTC->setUnixTime(ntpTime);
+    Serial.println("RTC successfully updated.");
+    
+    return true; // Return true if the time was successfully fetched and updated
 }
+
 
 /**
  * @brief Retrieves the current Unix time (seconds since Jan 1, 1970).
