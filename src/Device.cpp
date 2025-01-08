@@ -12,8 +12,8 @@ Device::Device() {
 void Device::begin() {
     
     pinMode(LED_GREEN_PIN, OUTPUT);// Initialize the LED pin as output
-    digitalWrite(LED_GREEN_PIN,LOW);
     pinMode(SWITCH_PIN, INPUT_PULLUP);  // Assuming the switch is connected to ground
+    pinMode(PROG_SWITCH_PIN, INPUT_PULLUP);  // Assuming the switch is connected to ground
     pinMode(BUZZ_PIN, OUTPUT);// Initialize the buzzer pin as output
     digitalWrite(BUZZ_PIN, LOW);// Set initial state for buzzer (off)
 }
@@ -47,6 +47,17 @@ bool Device::isButtonPressed() {
 }
 
 /**
+ * @brief Checks if the button (switch) is pressed.
+ * Reads the state of the switch pin and returns true if the button is pressed (LOW state).
+ *
+ * @return true if the button is pressed, false otherwise.
+ */
+bool Device::isProgButtonPressed() {
+    // Check if button (switch) is pressed (LOW because of INPUT_PULLUP)
+    return digitalRead(PROG_SWITCH_PIN) == LOW;
+}
+
+/**
  * @brief Controls the buzzer state.
  * Turns the buzzer on or off based on the provided state.
  *
@@ -64,30 +75,18 @@ void Device::controlBuzzer(bool state) {
  * @param sleepDuration The duration (in milliseconds) for the device to remain in deep sleep.
  */
 void Device::deepSleep(unsigned long sleepDuration) {
-    // Print debug information to Serial
-
-    if (DEBUGMODE)Serial.print("The system will sleep for ");
-    if (DEBUGMODE)Serial.print(sleepDuration / 1000); // Convert milliseconds to seconds
-    if (DEBUGMODE)Serial.println(" seconds.");
-
     // Convert the sleep duration from milliseconds to microseconds
     unsigned long sleepTimeInMicroseconds = sleepDuration * 1000;
 
     // Set the deep sleep duration
     esp_sleep_enable_timer_wakeup(sleepTimeInMicroseconds);
 
-    // Optional: Configure additional wakeup sources
+    // Optionally, you can enable wakeup via other sources like GPIO or touch
     // esp_sleep_enable_ext0_wakeup(GPIO_NUM_XX, HIGH); // Example GPIO wakeup
-
-    // Flush Serial buffer and notify before entering sleep
-    if (DEBUGMODE)Serial.println("Entering deep sleep now...");
-    if (DEBUGMODE)Serial.flush();
-    delay(100); // Give time for Serial output to complete
 
     // Enter deep sleep
     esp_deep_sleep_start();
 }
-
 
 /**
  * @brief Determines the cause of the wake-up and returns an integer based on the source.

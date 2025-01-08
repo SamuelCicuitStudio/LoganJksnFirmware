@@ -30,8 +30,6 @@
 #include <esp_sleep.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
-#include <ArduinoJson.h>
-
 
 // External libraries
 #include <NTPClient.h>
@@ -68,17 +66,19 @@ public:
 
     void RemoveKey(const char* key);  // Remove a specific key
     void ClearKey(); 
-
+    bool GetAPFLag();                 // return ap flag
+    void ResetAPFLag();//reset AP flag
 
     // System control methods
     void RestartSysDelay(unsigned long delayTime);  // Restart system with delay
-    void RestartSysDelayDown(unsigned long delayTime);  // Restart system with delay
     void simulatePowerDown();  // Simulate power down for testing
     void CountdownDelay(unsigned long delayTime);
 
     // Preferences management
     void startPreferencesReadWrite();  // Open preferences in read-write mode
     void startPreferencesRead();       // Open preferences in read-only mode
+
+    void SetAPFLag();  // Set the AP flag
 
 private:
     // Private utility methods for internal use only

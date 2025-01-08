@@ -14,6 +14,7 @@ public:
     void blinkLED(unsigned long interval);
     // Check if the button is pressed
     bool isButtonPressed();
+    bool isProgButtonPressed();
     // Turn the buzzer on or off
     void controlBuzzer(bool state);
     void deepSleep(unsigned long sleepDuration);
