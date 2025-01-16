@@ -39,11 +39,11 @@ void setup() {
 
     wifi = new WiFiManager(Config, RTC, device);  // Create a Wi-Fi Manager instance
     
-    if (!device->isProgButtonPressed()){
+    /*if (!device->isProgButtonPressed()){
         while(true){
             setFromSerial();
         }
-    }
+    }*/
 
     Config->CountdownDelay(5000);  // Countdown delay of 5 seconds before user action
     if (!device->isButtonPressed()) AdminSetupMode();  // Enter setup mode if the button is not pressed

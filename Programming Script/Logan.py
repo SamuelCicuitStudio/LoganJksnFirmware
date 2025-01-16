@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkcalendar import Calendar
 import serial
 import json
+import serial.tools.list_ports
 
 # Function to connect to COM port
 def connect_com_port():
@@ -56,6 +57,13 @@ def update_date_fields(event):
     day_entry.delete(0, tk.END)
     day_entry.insert(0, date_parts[2])
 
+# Function to scan and update the available COM ports in the dropdown menu
+def scan_com_ports():
+    com_ports = [port.device for port in serial.tools.list_ports.comports()]
+    com_port_dropdown['values'] = com_ports
+    if com_ports:
+        com_port_var.set(com_ports[0])  # Set the first COM port as default selection
+
 # Create main window
 root = tk.Tk()
 root.title("Serial Communication App")
@@ -63,10 +71,13 @@ root.title("Serial Communication App")
 # COM Port selection
 com_port_label = tk.Label(root, text="Select COM Port:")
 com_port_label.grid(row=0, column=0, padx=10, pady=10)
-com_ports = [f"COM{i}" for i in range(1, 10)]  # COM1 to COM9 (adjust according to your system)
 com_port_var = tk.StringVar()
-com_port_dropdown = ttk.Combobox(root, textvariable=com_port_var, values=com_ports)
+com_port_dropdown = ttk.Combobox(root, textvariable=com_port_var)
 com_port_dropdown.grid(row=0, column=1, padx=10, pady=10)
+
+# Scan button to refresh COM ports list
+scan_button = tk.Button(root, text="Scan COM Ports", command=scan_com_ports)
+scan_button.grid(row=0, column=2, padx=10, pady=10)
 
 # Baud rate selection
 baud_rate_label = tk.Label(root, text="Select Baud Rate:")
