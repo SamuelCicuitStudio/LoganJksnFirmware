@@ -28,11 +28,6 @@ private:
     void handleSettings(AsyncWebServerRequest* request);
     void handleSetWiFi(AsyncWebServerRequest* request);
     void handleSaveWiFi(AsyncWebServerRequest* request);
-    void handleSetAlarm(AsyncWebServerRequest* request);
-    void handleSetRTC(AsyncWebServerRequest* request);
-
-    void handleGetAlarm(AsyncWebServerRequest* request);
-    void handleGetRTC(AsyncWebServerRequest* request);
     void handleRestart(AsyncWebServerRequest* request) ;
     void handleReset(AsyncWebServerRequest* request) ;
     

@@ -35,7 +35,7 @@ ConfigManager::~ConfigManager() {
  * 
  * @param delayTime Time in milliseconds to wait before restarting the device.
  */
-void ConfigManager::RestartSysDelay(unsigned long delayTime) {
+void ConfigManager::RestartSysDelayDown(unsigned long delayTime) {
     unsigned long startTime = millis();  // Record the start time
 
     if (DEBUGMODE) {
@@ -59,6 +59,43 @@ void ConfigManager::RestartSysDelay(unsigned long delayTime) {
         Serial.println("Restarting now...");
     }
     simulatePowerDown();  // Simulate power down before restart
+    
+}
+/**
+ * @brief Restarts the system after a specified delay.
+ * 
+ * This function initiates a countdown before restarting the device. 
+ * During the countdown, it prints the remaining time and a series of '#' 
+ * characters for visibility. It also resets the watchdog timer to prevent 
+ * the system from resetting prematurely.
+ * 
+ * @param delayTime Time in milliseconds to wait before restarting the device.
+ */
+void ConfigManager::RestartSysDelay(unsigned long delayTime) {
+    unsigned long startTime = millis();  // Record the start time
+
+    if (DEBUGMODE) {
+        Serial.println("################################");
+        Serial.print("Restarting the Device in: ");
+        Serial.print(delayTime / 1000);  // Convert delayTime to seconds
+        Serial.println(" Sec");
+    }
+
+    // Ensure 32 '#' are printed after the countdown
+    if (DEBUGMODE) {
+        for (int i = 0; i < 32; i++) {  // Print 32 '#' characters
+            Serial.print("#");
+            delay(125);  // Delay for visibility of each '#' character
+            esp_task_wdt_reset();  // Reset watchdog timer
+        }
+        Serial.println();  // Move to the next line after printing
+    }
+
+    if (DEBUGMODE) {
+        Serial.println("Restarting now...");
+    }
+    //simulatePowerDown();  // Simulate power down before restart
+     ESP.restart();
 }
 
 /**
@@ -125,7 +162,7 @@ void ConfigManager::startPreferencesReadWrite() {
  */
 void ConfigManager::startPreferencesRead() {
     preferences->begin(CONFIG_PARTITION, true);  // true = read-only mode
-    Serial.println("Preferences opened in read mode.");
+    if (DEBUGMODE)Serial.println("Preferences opened in read mode.");
 }
 
 /**
@@ -144,19 +181,19 @@ void ConfigManager::begin() {
         Serial.println("###########################################################");
     }
     
-    bool resetFlag = GetBool(RESET_FLAG, false);  // Default to false if not set
+    bool resetFlag = GetBool(RESET_FLAG, true);  // Default to true if not set
 
     if (resetFlag) {
         // Only print once, if necessary, then reset device
         if (DEBUGMODE) {
-            Serial.println("ConfigManager: System Initializing the device.");
-        }
+            Serial.println("ConfigManager: Initializing the device...");
+        };
         initializeDefaults();  // Reset preferences if the flag is set
         RestartSysDelay(7000);  // Use a delay for restart after reset
     } else {
         // Use existing configuration, no need for unnecessary delay
         if (DEBUGMODE) {
-            Serial.println("ConfigManager: System Using existing configuration.");
+            Serial.println("ConfigManager: Using existing configuration...");
         }
     }
 }
@@ -211,21 +248,22 @@ void ConfigManager::initializeDefaults() {
  */
 void ConfigManager::initializeVariables() {
     // Assign default values to configuration variables
-    preferences->putBool(APWIFIMODE_FLAG, true);  // Default AP Wi-Fi mode flag
-    preferences->putString(WIFISSID, DEFAULT_WIFI_SSID);  // Default Wi-Fi SSID
-    preferences->putString(WIFIPASS, DEFAULT_WIFI_PASSWORD);  // Default Wi-Fi password
-    preferences->putBool(RESET_FLAG, false);  // Reset flag is set to false after initialization
+    PutString(WIFISSID, DEFAULT_WIFI_SSID);  // Default Wi-Fi SSID
+    PutString(WIFIPASS, DEFAULT_WIFI_PASSWORD);  // Default Wi-Fi password
+    PutBool(RESET_FLAG, false);  // Reset flag is set to false after initialization
 
     // Device information defaults
-    preferences->putString(DEVICE_NAME, DEFAULT_DEVICE_NAME);  // Default device name
-    preferences->putString(DEVICE_ID, DEFAULT_DEVICE_ID);  // Default device ID
+    //PutString(DEVICE_NAME, DEFAULT_DEVICE_NAME);  // Default device name
+    //PutString(DEVICE_ID, DEFAULT_DEVICE_ID);  // Default device ID
 
     // RTC time and date default values
-    preferences->putULong64(CURRENT_TIME_SAVED, DEFAULT_CURRENT_TIME_SAVED);  // Default current time
-    preferences->putULong64(LAST_TIME_SAVED, DEFAULT_LAST_TIME_SAVED);  // Default last saved time
-    preferences->putULong64(ALERT_TIME_SAVED, DEFAULT_ALERT_TIME_SAVED);  // Default alert time
-    preferences->putBool(LED_STATE, DEFAULT_LED_STATE);  // Default LED state
-    preferences->putInt(FIRST_TIME,DEFAULT_FIRST_TIME_FLAG);
+    PutULong64(CURRENT_TIME_SAVED, DEFAULT_CURRENT_TIME_SAVED);  // Default current time
+    PutULong64(LAST_TIME_SAVED, DEFAULT_LAST_TIME_SAVED);  // Default last saved time
+    PutULong64(ALERT_TIMESTAMP_SAVED, DEFAULT_ALERT_TIME_SAVED);  // Default alert time
+    PutString(ALERT_DATE_, "2025-01-01");  // Default date saved
+    PutString(ALERT_TIME_, "11:18");  // Default time saved
+
+    PutBool(LED_STATE, DEFAULT_LED_STATE);  // Default LED state
     // Add any additional configurations here if needed
 }
 
@@ -450,35 +488,5 @@ void ConfigManager::RemoveKey(const char * key) {
     }
 }
 
-/**
- * @brief Sets the AP flag in the preferences.
- * 
- * This function removes the existing "strAP" key and sets it to 
- * true. It introduces a delay after updating the preferences.
- */
-void ConfigManager::SetAPFLag() {
-    RemoveKey(APWIFIMODE_FLAG);
-    preferences->putBool(APWIFIMODE_FLAG, true);
-    delay(100);
-}
 
-/**
- * @brief Resets the AP flag in the preferences.
- * 
- * This function removes the existing "strAP" key and sets it to 
- * true. It introduces a delay after updating the preferences.
- */
-void ConfigManager::ResetAPFLag() {
-    RemoveKey(APWIFIMODE_FLAG);
-    preferences->putBool(APWIFIMODE_FLAG, false);
-    delay(100);
-};
-
-/**
- * @brief Returns the AP flag in the preferences.
- * 
- */
-bool ConfigManager::GetAPFLag() {
-    return preferences->getBool(APWIFIMODE_FLAG, true);
-}
 

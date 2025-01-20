@@ -38,26 +38,9 @@ void WiFiManager::begin() {
         Serial.println("SPIFFS mounted successfully");
         Serial.println("WiFiManager: Begin initialization");
     };
-    delay(2000);
-    if(!device->isButtonPressed()){
-        configManager->ResetAPFLag();
+        if(device->isButtonPressed() != false){
+            startAccessPoint();
     };
-    // Determine the mode to start in (AP or WiFi)
-    bool startAP = configManager->GetAPFLag();
-    
-    // Formatted message
-    char text[50]; // Ensure this is large enough to hold your formatted string
-    sprintf(text, "WiFiManager: Start mode - %s\n", startAP ? "AP" : "WiFi");
-    if (DEBUGMODE) {
-        Serial.printf("WiFiManager: Start mode - %s\n", startAP ? "AP" : "WiFi");
-    }
-
-// Start in access point mode or connect to WiFi based on the flag
-if (startAP) {
-    connectToWiFi();
-} else {
-    startAccessPoint();
-}
 
 }
 
@@ -115,7 +98,7 @@ void WiFiManager::connectToWiFi() {
             
              if (DEBUGMODE) {
                 Serial.println("WiFiManager: Failed to connect to WiFi.\nSwitching to AP mode.");
-                configManager->SetAPFLag(); // Set flag to start in AP mode next time
+                esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
                 configManager->RestartSysDelay(3000);
             }
         }
@@ -164,247 +147,296 @@ void WiFiManager::setServerCallback() {
     server.on("/Restart", HTTP_POST, [this](AsyncWebServerRequest* request) { handleRestart(request); });
     server.on("/Reset", HTTP_POST, [this](AsyncWebServerRequest* request) { handleReset(request); });
 
-
     // New routes for Alarm and RTC settings
-    server.on("/getAlarm", HTTP_GET, [this](AsyncWebServerRequest* request) { handleGetAlarm(request); });
-    server.on("/getRTC", HTTP_GET, [this](AsyncWebServerRequest* request) { handleGetRTC(request); });
+    // Endpoint to get both alarm and RTC settings
+    server.on("/getSettings", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        // Create a JSON document
+        DynamicJsonDocument doc(1024);
+        
+        // Fill the JSON with alarm and RTC data
+        JsonObject alarm = doc.createNestedObject("alarm");
+        alarm["date"] = configManager->GetString(ALERT_DATE_, "2025-01-01");
+        alarm["time"] = configManager->GetString(ALERT_TIME_, "00:00");
 
-    server.on("/setAlarm", HTTP_POST, [this](AsyncWebServerRequest* request) { handleSetAlarm(request); });
-    server.on("/setRTC", HTTP_POST, [this](AsyncWebServerRequest* request) { handleSetRTC(request); });
+        JsonObject rtc = doc.createNestedObject("rtc");
+        RTC->update(); // update the containing variables
+        rtc["date"] = RTC->getDate();
+        rtc["time"] = RTC->getTime();
+
+        // Send the response as JSON
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
+    server.on("/setAlarm", HTTP_POST, [this](AsyncWebServerRequest *request) {}, 
+        NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            if (DEBUGMODE) Serial.println("Handling Alarm set request");
+            esp_task_wdt_reset();
+            
+            static String jsonData;
+            jsonData += String((char*)data, len);
+
+            // Check if we've received the complete data
+            if (index + len == total) {
+                esp_task_wdt_reset();
+                
+                if (DEBUGMODE) {
+                    Serial.println("Received complete data for Alarm settings, processing...");
+                    Serial.println("jsonData content: " + jsonData);
+                }
+
+                // Parse the JSON data
+                StaticJsonDocument<200> doc;
+                DeserializationError error = deserializeJson(doc, jsonData);
+                
+                if (error) {
+                    if (DEBUGMODE) Serial.println("Failed to parse JSON");
+                    request->send(400, "application/json", "{\"error\":\"Invalid JSON format\"}");
+                    jsonData = "";  // Clear static String for next request
+                    return;
+                }
+
+                String alarmDate = doc["alarmDate"].as<String>();
+                String alarmTime = doc["alarmTime"].as<String>();
+
+                if (alarmDate.isEmpty() || alarmTime.isEmpty()) {
+                    request->send(400, "application/json", "{\"error\":\"Missing alarmDate or alarmTime\"}");
+                    jsonData = "";  // Clear static String for next request
+                    return;
+                }
+
+                // Debug output
+                if (DEBUGMODE)Serial.println("################################");
+                if (DEBUGMODE)Serial.println("Alarm Time Set by USER");
+                if (DEBUGMODE)Serial.println("Alarm Date: " + alarmDate);
+                if (DEBUGMODE)Serial.println("Alarm Time: " + alarmTime);
+                if (DEBUGMODE)Serial.println("################################");
+
+                // Manually parse the date and time strings (format: "YYYY-MM-DD" and "HH:MM")
+                int year = alarmDate.substring(0, 4).toInt();
+                int month = alarmDate.substring(5, 7).toInt();
+                int day = alarmDate.substring(8, 10).toInt();
+                int hour = alarmTime.substring(0, 2).toInt();
+                int minute = alarmTime.substring(3, 5).toInt();
+                int second = 0;
+
+                // Debug output
+                if (DEBUGMODE)Serial.println("Parsed Alarm Date and Time:");
+                if (DEBUGMODE)Serial.println("Year: " + String(year));
+                if (DEBUGMODE)Serial.println("Month: " + String(month));
+                if (DEBUGMODE)Serial.println("Day: " + String(day));
+                if (DEBUGMODE)Serial.println("Hour: " + String(hour));
+                if (DEBUGMODE)Serial.println("Minute: " + String(minute));
+                if (DEBUGMODE)Serial.println("Second: " + String(second));
+
+                // Create a tm struct and set its fields
+                struct tm timeStruct = {};
+                timeStruct.tm_year = year - 1900;  // tm_year is years since 1900
+                timeStruct.tm_mon = month - 1;     // tm_mon is 0-based
+                timeStruct.tm_mday = day;
+                timeStruct.tm_hour = hour;
+                timeStruct.tm_min = minute;
+                timeStruct.tm_sec = second;
+
+                // Convert to Unix timestamp
+                time_t alarmTimeUnix = mktime(&timeStruct);
+                if (alarmTimeUnix == -1) {
+                    if (DEBUGMODE) Serial.println("Failed to convert time to Unix timestamp");
+                    request->send(400, "application/json", "{\"error\":\"Invalid alarm time\"}");
+                    jsonData = "";  // Clear static String for next request
+                    return;
+                }
+
+                // Store alarm date, time, and Unix timestamp in preferences
+                configManager->PutString(ALERT_DATE_, alarmDate);
+                configManager->PutString(ALERT_TIME_, alarmTime);
+                configManager->PutULong64(ALERT_TIMESTAMP_SAVED, alarmTimeUnix);
+                // Debug output before saving values
+                if (DEBUGMODE)Serial.println("#########################################");
+                if (DEBUGMODE)Serial.println("Saving Alert Date: " + alarmDate);
+                if (DEBUGMODE)Serial.println("Saving Alert Time: " + alarmTime);
+                if (DEBUGMODE)Serial.println("Saving Alert Unix Timestamp: " + String(alarmTimeUnix));
+                if (DEBUGMODE)Serial.println("#########################################");
+                esp_task_wdt_reset();  // Reset the watchdog timer to prevent a system reset
+
+                // Respond with success message
+                String successResponse = "{\"success\":true}";
+                request->send(200, "application/json", successResponse);
+
+                jsonData = "";  // Clear static String for next request
+            }
+        }
+    );
+
+    server.on("/setRTC", HTTP_POST, [this](AsyncWebServerRequest *request) {}, 
+        NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            if (DEBUGMODE) Serial.println("Handling RTC set request");
+            esp_task_wdt_reset();
+            
+            static String jsonData;
+            jsonData += String((char*)data, len);
+
+            // Check if we've received the complete data
+            if (index + len == total) {
+                esp_task_wdt_reset();
+                
+                if (DEBUGMODE) {
+                    Serial.println("Received complete data for RTC settings, processing...");
+                    Serial.println("jsonData content: " + jsonData);
+                }
+
+                // Parse the JSON data
+                StaticJsonDocument<200> doc;
+                DeserializationError error = deserializeJson(doc, jsonData);
+                
+                if (error) {
+                    if (DEBUGMODE) Serial.println("Failed to parse JSON");
+                    request->send(400, "application/json", "{\"error\":\"Invalid JSON format\"}");
+                    jsonData = "";  // Clear static String for next request
+                    return;
+                }
+
+                String rtcDate = doc["rtcDate"].as<String>();
+                String rtcTime = doc["rtcTime"].as<String>();
+
+                if (rtcDate.isEmpty() || rtcTime.isEmpty()) {
+                    request->send(400, "application/json", "{\"error\":\"Missing rtcDate or rtcTime\"}");
+                    jsonData = "";  // Clear static String for next request
+                    return;
+                }
+
+                // Debug output
+                if (DEBUGMODE)Serial.println("################################");
+                if (DEBUGMODE)Serial.println("RTC Time Set by USER");
+                if (DEBUGMODE)Serial.println("RTC Date: " + rtcDate);
+                if (DEBUGMODE)Serial.println("RTC Time: " + rtcTime);
+                if (DEBUGMODE)Serial.println("################################");
+
+                // Combine date and time into a single string
+                String dateTimeString = rtcDate + " " + rtcTime;
+                struct tm timeStruct;
+                
+                // Manually parse the date and time strings (format: "YYYY-MM-DD" and "HH:MM")
+                int year = rtcDate.substring(0, 4).toInt();
+                int month = rtcDate.substring(5, 7).toInt();
+                int day = rtcDate.substring(8, 10).toInt();
+                int hour = rtcTime.substring(0, 2).toInt();
+                int minute = rtcTime.substring(3, 5).toInt();
+                int second = 0;
+
+                // Debug output
+                if (DEBUGMODE)Serial.println("Parsed Date and Time:");
+                if (DEBUGMODE)Serial.println("Year: " + String(year));
+                if (DEBUGMODE)Serial.println("Month: " + String(month));
+                if (DEBUGMODE)Serial.println("Day: " + String(day));
+                if (DEBUGMODE)Serial.println("Hour: " + String(hour));
+                if (DEBUGMODE)Serial.println("Minute: " + String(minute));
+                if (DEBUGMODE)Serial.println("Second: " + String(second));
+
+                // Set the RTC time using the parsed values
+                RTC->setRTCTime(year, month, day, hour, minute, second);
+                configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());
+                configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());
+
+                // Debug output for current and last saved time
+                if (DEBUGMODE)Serial.println("################################################################");
+                if (DEBUGMODE)Serial.println("Current Time (Unix): " + String(RTC->getUnixTime()));
+                if (DEBUGMODE)Serial.println("Last Saved Time (Unix): " + String(RTC->getUnixTime()));
+                if (DEBUGMODE)Serial.println("################################################################");
+
+
+                // Respond with success message
+                String successResponse = "{\"success\":true}";
+                request->send(200, "application/json", successResponse);
+
+                jsonData = "";  // Clear static String for next request
+            }
+        }
+    );
 
     // Serve static files like icons, CSS, JS, etc.
     server.serveStatic("/icons/", SPIFFS, "/icons/").setCacheControl("max-age=86400");
+    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
 
     // Start the server
     server.begin();
 }
 
 /**
- * @brief Handles incoming reset requests and initiates a system restart.
+ * @brief Handles incoming reset requests and displays a popup confirmation.
  * 
- * This function processes an incoming reset request. It sends a response to 
- * the client indicating that the reset flag has been set. After that, the system 
- * waits for 1 second, then sends another response to the client notifying that 
- * the device will restart in 3 seconds. Finally, the system initiates a restart 
- * process with a 3-second delay.
+ * This function processes an incoming reset request. It sends a JavaScript snippet 
+ * to the client to display a popup indicating that the reset flag has been set 
+ * and the device will restart in 3 seconds.
  * 
  * @param request The incoming web request that triggered the reset action.
  */
 void WiFiManager::handleReset(AsyncWebServerRequest* request) {
-    if (DEBUGMODE) {  // If debug mode is enabled, print a debug message
+    if (DEBUGMODE) {
         Serial.println("WiFiManager: Handling Reset request");
-    }
+    };
+    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
 
-    // Send a response to the client indicating the reset flag is set
-    request->send(200, "text/plain", "Reset Flag Set...");
-    configManager->PutBool(RESET_FLAG, true);  // Set the reset flag in configuration manager
+    // JavaScript response to display a popup
+    String response = R"rawliteral(
+        <script>
+            alert("Reset Flag Set. The device will restart in 3 seconds...");
+            setTimeout(() => {
+                alert("Restarting now...");
+            }, 3000);
+        </script>
+    )rawliteral";
 
-    delay(1000);  // Wait for 1 second before sending another response
+    // Send the JavaScript response to the client
+    request->send(200, "text/html", response);
 
-    // Send another response to the client indicating the system will restart in 3 seconds
-    request->send(200, "text/plain", "Resetting the device in 3 seconds...");
-
-    delay(1000);  // Wait for 1 second before triggering the restart
-
-    // Restart the system after the specified delay (3000ms or 3 seconds)
-    configManager->RestartSysDelay(3000);
+    // Set the reset flag and trigger the system restart
+    if (DEBUGMODE) {
+        Serial.println("WiFiManager: setting rst flag");
+    };
+    configManager->PutBool(RESET_FLAG, true);
+    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
+    delay(1000);  // Wait briefly
+    configManager->RestartSysDelay(3000);  // Restart the system after 3 seconds
 }
 
 /**
- * @brief Handles requests to the Restart endpoint.
+ * @brief Handles requests to the Restart endpoint and displays a popup confirmation.
  * 
- * This function responds to an incoming restart request by sending a message to 
- * the client indicating that the system is restarting in 5 seconds. After sending 
- * the response, the system will initiate the restart process after the specified 
- * delay of 5 seconds.
+ * This function responds to an incoming restart request by sending a JavaScript 
+ * snippet to the client to display a popup message indicating that the system will 
+ * restart in 5 seconds.
  * 
  * @param request The incoming web request.
  */
 void WiFiManager::handleRestart(AsyncWebServerRequest* request) {
     if (DEBUGMODE) {
         Serial.println("WiFiManager: Handling Restart request");
-    }
-
-    // Send a response to the client indicating the restart is imminent
-    request->send(200, "text/plain", "Restarting in 5 seconds...");
-
-    delay(1000);
-
-    // Wait for 5 seconds before restarting the system
-    configManager->RestartSysDelay(4000);
-}
-
-/**
- * @brief Handles requests to the GetAlarm endpoint.
- *
- * @param request The incoming web request.
- */
-void WiFiManager::handleGetAlarm(AsyncWebServerRequest* request) {
-    if (DEBUGMODE) {
-        Serial.println("WiFiManager: Handling GetAlarm request");
-    }
-
-    // Retrieve the saved Unix timestamp for the alarm (stored in the same variable for both alarm and RTC)
-    unsigned long long alarmTimeUnix = configManager->GetULong64(ALERT_TIME_SAVED, 0);
-
-    // Check if the alarm timestamp exists (if not, return a default error)
-    if (alarmTimeUnix == 0) {
-        Serial.println("Error: No alarm time saved.");
-        request->send(404, "text/html", "Alarm time not set.");
-        return;
-    }
-
-    // Convert the unsigned long long to time_t (assuming alarmTimeUnix fits into time_t range)
-    time_t alarmTime = static_cast<time_t>(alarmTimeUnix);
-
-    // Convert the Unix timestamp to a human-readable date and time
-    struct tm timeStruct;
-    gmtime_r(&alarmTime, &timeStruct); // Convert to UTC
-
-    char dateStr[11]; // Format YYYY-MM-DD
-    char timeStr[9];  // Format HH:MM:SS
-    strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", &timeStruct);
-    strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeStruct);
-
-    // Prepare the JSON response
-    String jsonResponse = "{";
-    jsonResponse += "\"date\":\"" + String(dateStr) + "\",";
-    jsonResponse += "\"time\":\"" + String(timeStr) + "\"";
-    jsonResponse += "}";
-
-    // Send the response as JSON
-    request->send(200, "application/json", jsonResponse);
-}
-
-/**
- * @brief Handles requests to the GetRTC endpoint.
- *
- * @param request The incoming web request.
- */
-void WiFiManager::handleGetRTC(AsyncWebServerRequest* request) {
-    if (DEBUGMODE) {
-        Serial.println("WiFiManager: Handling GetRTC request");
-    }
-
-    // Retrieve the saved Unix timestamp for the RTC (same variable used for alarm time)
-    unsigned long long rtcTimeUnix = RTC->getUnixTime();
-
-    // Check if the RTC timestamp exists (if not, return a default error)
-    if (rtcTimeUnix == 0) {
-        Serial.println("Error: No RTC time saved.");
-        request->send(404, "text/html", "RTC time not set.");
-        return;
-    }
-
-    // Convert the unsigned long long to time_t (assuming rtcTimeUnix fits into time_t range)
-    time_t rtcTime = static_cast<time_t>(rtcTimeUnix);
-
-    // Convert the Unix timestamp to a human-readable date and time
-    struct tm timeStruct;
-    gmtime_r(&rtcTime, &timeStruct); // Convert to UTC
-
-    char dateStr[11]; // Format YYYY-MM-DD
-    char timeStr[9];  // Format HH:MM:SS
-    strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", &timeStruct);
-    strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeStruct);
-
-    // Prepare the JSON response
-    String jsonResponse = "{";
-    jsonResponse += "\"date\":\"" + String(dateStr) + "\",";
-    jsonResponse += "\"time\":\"" + String(timeStr) + "\"";
-    jsonResponse += "}";
-
-    // Send the response as JSON
-    request->send(200, "application/json", jsonResponse);
-}
-
-/**
- * @brief Handles requests to the SetAlarm endpoint.
- *
- * @param request The incoming web request.
- */
-void WiFiManager::handleSetAlarm(AsyncWebServerRequest* request) {
-    if (DEBUGMODE) {
-        Serial.println("WiFiManager: Handling SetAlarm request");
     };
+    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
 
-    if (request->hasParam("alarmDate", true) && request->hasParam("alarmTime", true)) {
-        String alarmDate = request->getParam("alarmDate", true)->value();
-        String alarmTime = request->getParam("alarmTime", true)->value();
-        
-        // Debug output
-        Serial.println("Alarm Date: " + alarmDate);
-        Serial.println("Alarm Time: " + alarmTime);
+    // JavaScript response to display a popup
+    String response = R"rawliteral(
+        <script>
+            alert("Restarting the device in 5 seconds...");
+            setTimeout(() => {
+                alert("Restarting now...");
+            }, 5000);
+        </script>
+    )rawliteral";
 
-        // Combine date and time into a full datetime string in the format "yyyy-MM-dd HH:mm:ss"
-        String dateTimeString = alarmDate + " " + alarmTime;
-
-        // Convert to Unix timestamp
-        struct tm timeStruct;
-        strptime(dateTimeString.c_str(), "%Y-%m-%d %H:%M:%S", &timeStruct);  // Parse datetime
-        time_t alarmTimeUnix = mktime(&timeStruct);  // Convert to Unix timestamp
-
-        // Write the Unix timestamp to the preferences partition
-        configManager->PutULong64(ALERT_TIME_SAVED, alarmTimeUnix);
-        configManager->ResetAPFLag();
-        // Debug output
-        Serial.println("Alarm Unix Time: " + String(alarmTimeUnix));
-    }
-
-    // Respond with HTML and JavaScript for popup message
-    String htmlResponse = "<html><body>";
-    htmlResponse += "<script type='text/javascript'>";
-    htmlResponse += "alert('Alarm Saved');";  // JavaScript to show alert
-    htmlResponse += "</script>";
-    htmlResponse += "</body></html>";
-
-    // Send the response with the popup
-    request->send(200, "text/html", htmlResponse);
+    // Send the JavaScript response to the client
+    request->send(200, "text/html", response);
+    configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());// save time before restarting
+    configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());// save time before restarting
+    // Trigger the system restart
+    esp_task_wdt_reset(); // Reset the watchdog timer to prevent a system reset
+    delay(1000);  // Wait briefly
+    configManager->RestartSysDelayDown(4000);  // Restart the system after 4 seconds
 }
 
 
-/**
- * @brief Handles requests to the Set RTC endpoint.
- *
- * @param request The incoming web request.
- */
-void WiFiManager::handleSetRTC(AsyncWebServerRequest* request) {
-    if (DEBUGMODE) {
-        Serial.println("WiFiManager: Handling Set RTC request");
-    }
-
-    if (request->hasParam("alarmDate", true) && request->hasParam("alarmTime", true)) {
-        String rtcDate = request->getParam("rtcDate", true)->value();
-        String rtcTime = request->getParam("rtcTime", true)->value();
-        
-        // Debug output
-        Serial.println("RTC Date: " + rtcDate);
-        Serial.println("RTC Time: " + rtcTime);
-
-        String dateTimeString = rtcDate + " " + rtcTime;
-        struct tm timeStruct;
-        strptime(dateTimeString.c_str(), "%Y-%m-%d %H:%M:%S", &timeStruct);
-        time_t rtcTimeUnix = mktime(&timeStruct);
-
-        // Write the Unix timestamp to the preferences partition
-        RTC->setUnixTime(rtcTimeUnix);// set the RTC time
-        configManager->PutULong64(CURRENT_TIME_SAVED, rtcTimeUnix);
-         configManager->PutULong64(LAST_TIME_SAVED, rtcTimeUnix);
-        configManager->ResetAPFLag();
-        // Debug output
-        Serial.println("RTC Unix Time: " + String(rtcTimeUnix));
-    }
-
-    // Respond with HTML and JavaScript for popup message
-    String htmlResponse = "<html><body>";
-    htmlResponse += "<script type='text/javascript'>";
-    htmlResponse += "alert('RTC time Saved');";  // JavaScript to show alert
-    htmlResponse += "</script>";
-    htmlResponse += "</body></html>";
-
-    // Send the response with the popup
-    request->send(200, "text/html", htmlResponse);
-}
 /**
  * @brief Handles requests to the Settings endpoint.
  *
@@ -413,7 +445,7 @@ void WiFiManager::handleSetRTC(AsyncWebServerRequest* request) {
 void WiFiManager::handleSettings(AsyncWebServerRequest* request) {
     if (DEBUGMODE) {
         Serial.println("WiFiManager: Handling Settings root request");
-    }
+    };
 
     request->send(SPIFFS, "/BoardSetting.html", "text/html");
 }
@@ -469,9 +501,10 @@ void WiFiManager::handleSaveWiFi(AsyncWebServerRequest* request) {
             sprintf(text, "WiFiManager: Saving Wifi Credentials...");
             configManager->PutString(WIFISSID, ssid);
             configManager->PutString(WIFIPASS, password);
-            configManager->ResetAPFLag();
             request->send(SPIFFS, "/thankyou_page.html", "text/html");
             sprintf(text, "WiFiManager: Device Restarting in 3 Sec");
+            configManager->PutULong64(CURRENT_TIME_SAVED, RTC->getUnixTime());// save time before restarting
+            configManager->PutULong64(LAST_TIME_SAVED, RTC->getUnixTime());// save time before restarting
             configManager->RestartSysDelay(3000);
         } else {
             request->send(400, "text/plain", "Invalid SSID or Password.");
