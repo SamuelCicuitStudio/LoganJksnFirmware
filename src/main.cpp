@@ -51,7 +51,7 @@ void setup() {
     RTC = new RTCManager(&timeInfo);  
 
 // Countdown delay of 1.2 seconds before user action
-Config->CountdownDelay(1200);  
+Config->CountdownDelay(4000);  
 
     // Check if the program button is pressed
     if (!device->isProgButtonPressed()) {
