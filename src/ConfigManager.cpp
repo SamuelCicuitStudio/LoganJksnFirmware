@@ -46,10 +46,12 @@ void ConfigManager::RestartSysDelayDown(unsigned long delayTime) {
     }
 
     // Ensure 32 '#' are printed after the countdown
+    unsigned long interval = delayTime / 32;  // Divide delayTime by 32 to get interval
+
     if (DEBUGMODE) {
         for (int i = 0; i < 32; i++) {  // Print 32 '#' characters
             Serial.print("#");
-            delay(125);  // Delay for visibility of each '#' character
+            delay(interval);  // Delay for visibility of each '#' character
             esp_task_wdt_reset();  // Reset watchdog timer
         }
         Serial.println();  // Move to the next line after printing
@@ -82,10 +84,12 @@ void ConfigManager::RestartSysDelay(unsigned long delayTime) {
     }
 
     // Ensure 32 '#' are printed after the countdown
+    unsigned long interval = delayTime / 32;  // Divide delayTime by 32 to get interval
+
     if (DEBUGMODE) {
         for (int i = 0; i < 32; i++) {  // Print 32 '#' characters
             Serial.print("#");
-            delay(125);  // Delay for visibility of each '#' character
+            delay(interval);  // Delay for visibility of each '#' character
             esp_task_wdt_reset();  // Reset watchdog timer
         }
         Serial.println();  // Move to the next line after printing
@@ -120,15 +124,17 @@ void ConfigManager::CountdownDelay(unsigned long delayTime) {
 
     // Ensure 32 '#' are printed after the countdown
     if (DEBUGMODE) {
+        unsigned long interval = delayTime / 32;  // Divide delayTime by 32 to get interval
+
         for (int i = 0; i < 32; i++) {  // Print 32 '#' characters
             Serial.print("#");
-            delay(125);  // Delay for visibility of each '#' character
+            delay(interval);  // Delay dynamically based on the given delayTime
             esp_task_wdt_reset();  // Reset watchdog timer
         }
         Serial.println();  // Move to the next line after printing
     }
-
 }
+
 /**
  * @brief Simulates a power-down by putting the ESP32 into deep sleep.
  * 

@@ -15,6 +15,7 @@ public:
     // Check if the button is pressed
     bool isButtonPressed();
     // Turn the buzzer on or off
+    bool isProgButtonPressed();
     void controlBuzzer(bool state);
     void deepSleep(unsigned long sleepDuration);
     int getWakeUpCause();

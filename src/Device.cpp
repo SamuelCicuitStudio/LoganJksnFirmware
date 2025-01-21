@@ -14,6 +14,8 @@ void Device::begin() {
     pinMode(LED_GREEN_PIN, OUTPUT);// Initialize the LED pin as output
     digitalWrite(LED_GREEN_PIN,LOW);
     pinMode(SWITCH_PIN, INPUT_PULLUP);  // Assuming the switch is connected to ground
+
+    pinMode(PROG_SWITCH_PIN, INPUT_PULLUP);  // Assuming the switch is connected to ground
     pinMode(BUZZ_PIN, OUTPUT);// Initialize the buzzer pin as output
     digitalWrite(BUZZ_PIN, LOW);// Set initial state for buzzer (off)
 }
@@ -45,7 +47,16 @@ bool Device::isButtonPressed() {
     // Check if button (switch) is pressed (LOW because of INPUT_PULLUP)
     return digitalRead(SWITCH_PIN) == LOW;
 }
-
+/**
+ * @brief Checks if the button (switch) is pressed.
+ * Reads the state of the switch pin and returns true if the button is pressed (LOW state).
+ *
+ * @return true if the button is pressed, false otherwise.
+ */
+bool Device::isProgButtonPressed() {
+    // Check if button (switch) is pressed (LOW because of INPUT_PULLUP)
+    return digitalRead(PROG_SWITCH_PIN);
+}
 /**
  * @brief Controls the buzzer state.
  * Turns the buzzer on or off based on the provided state.

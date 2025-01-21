@@ -32,7 +32,7 @@
 #define DEFAULT_DEVICE_ID "00000001"                  ///< Default unique device identifier
 
 // Default Wi-Fi Access Point Credentials
-#define DEFAULT_AP_SSID "Logan Alarm DEVICE"          ///< Default Access Point SSID
+#define DEFAULT_AP_SSID "Alarm DEVICE"          ///< Default Access Point SSID
 #define DEFAULT_AP_PASSWORD "12345678"                ///< Default Access Point password
 
 // Default Wi-Fi Credentials
@@ -58,8 +58,8 @@
 // ==================================================
 #define LED_GREEN_PIN 2                               ///< Pin for green LED (status indicator)
 #define BUZZ_PIN 14                                   ///< Pin for buzzer (mode indicator)
-#define SWITCH_PIN 0                                  ///< Pin for switch
-
+#define SWITCH_PIN 0                                  ///< Pin for switch AP mode
+#define PROG_SWITCH_PIN 4                             ///< Pin for switch Serial ProgMode
 // ==================================================
 // Time Configuration
 // ==================================================

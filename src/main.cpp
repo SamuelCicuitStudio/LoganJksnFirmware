@@ -15,6 +15,7 @@ void connectAndUpdateTime();  // Connects to Wi-Fi and updates RTC time from NTP
 void PowerFailSafeMode();  // Manages power failure safe mode to correct RTC time
 void NormalMode();  // Handles the normal mode of device operation
 void setUnixTime(unsigned long timestamp);
+void setFromSerial();
 
 Preferences prefs;  // Create a Preferences object for storing configuration settings
 
@@ -48,18 +49,40 @@ void setup() {
     
     // Create an RTCManager instance
     RTC = new RTCManager(&timeInfo);  
-    
-    // Countdown delay of 5 seconds before user action
-    Config->CountdownDelay(5000);  
-    
-    // Check if the button is pressed
-    if (device->isButtonPressed() != false) { 
+
+// Countdown delay of 1.2 seconds before user action
+Config->CountdownDelay(1200);  
+
+    // Check if the program button is pressed
+    if (!device->isProgButtonPressed()) {
+        if (DEBUGMODE) {
+            Serial.println("Serial Prog Mode");
+        }
+        
+        // Blink the LED 4 times with a loop to avoid repetitive code
+        for (int i = 0; i < 7; i++) {
+            device->blinkLED(100);
+        }
+
+        // Enter serial mode and continuously process data
+        while (true) {
+            setFromSerial();
+        }
+    }
+
+    // Check if the user button is pressed
+    if (device->isButtonPressed()) {
         if (DEBUGMODE) {
             Serial.println("Entering Admin Mode");
-        }
+        };
+        // Blink the LED 2 times with a loop to avoid repetitive code
+        for (int i = 0; i < 4; i++) {
+            device->blinkLED(100);
+        };
+        // Enter setup mode if the button is pressed
         AdminSetupMode();
-        goto out;  // Enter setup mode if the button is pressed
-    }  
+        goto out;  // Exit to the out label if the button is pressed
+    };
 
     // Handle power failure safe mode to correct RTC time via Wi-Fi
     PowerFailSafeMode();  
@@ -265,4 +288,105 @@ void setUnixTime(unsigned long timestamp) {
     tv.tv_usec = 0;           ///< No microseconds
     esp_task_wdt_reset();     ///< Reset the watchdog timer to prevent a system reset
     settimeofday(&tv, nullptr); ///< Set system time
+}
+/**
+ * @brief Sets parameters from received serial data.
+ *
+ * This function reads incoming JSON data from the serial port, parses it, and extracts
+ * date and time information. It then constructs a datetime string in the format 
+ * "YYYY-MM-DD HH:MM:SS" and converts it into a Unix timestamp. If the conversion is 
+ * successful, the timestamp is saved into the preferences partition for future use.
+ *
+ * The expected JSON format for the incoming data is:
+ * {
+ *   "time": "HH:MM",  // Time in 24-hour format (e.g., "12:30")
+ *   "day": "DD",      // Day in two digits (e.g., "08")
+ *   "month": "MM",    // Month in two digits (e.g., "01")
+ *   "year": "YYYY"    // Year in four digits (e.g., "2025")
+ * }
+ *
+ * @note The timestamp is saved in the ESP32's preferences partition using the 
+ *       `Config->PutULong64(ALERT_TIME_SAVED, alarmTimeUnix)` function.
+ *
+ * @see ArduinoJson library for JSON parsing
+ * @see `strptime` and `mktime` functions for date/time parsing and conversion
+ * 
+ * @return void
+ */
+void setFromSerial() {
+  if (Serial.available() > 0) {
+    device->blinkLED(100);
+    String jsonData = Serial.readStringUntil('\n'); // Read the incoming JSON data
+
+    // Parse the JSON data
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, jsonData);
+
+    if (error) {
+      Serial.print("Error parsing JSON: ");
+      Serial.println(error.f_str());
+      return;
+    }
+
+    // Extract date and time values from the JSON
+    String alarmDate = doc["alarmDate"].as<String>();  // Format: YYYY-MM-DD
+    String alarmTime = doc["alarmTime"].as<String>();  // Format: HH:MM
+
+    if (alarmDate.isEmpty() || alarmTime.isEmpty()) {
+      Serial.println("Error: Missing alarmDate or alarmTime");
+      return;
+    }
+
+    // Debug output
+    Serial.println("################################");
+    Serial.println("Alarm Time Set by USER");
+    Serial.println("Alarm Date: " + alarmDate);
+    Serial.println("Alarm Time: " + alarmTime);
+    Serial.println("################################");
+
+    // Manually parse the date and time strings (format: "YYYY-MM-DD" and "HH:MM")
+    int year = alarmDate.substring(0, 4).toInt();
+    int month = alarmDate.substring(5, 7).toInt();
+    int day = alarmDate.substring(8, 10).toInt();
+    int hour = alarmTime.substring(0, 2).toInt();
+    int minute = alarmTime.substring(3, 5).toInt();
+    int second = 0;
+
+    // Debug output for parsed values
+    Serial.println("Parsed Alarm Date and Time:");
+    Serial.println("Year: " + String(year));
+    Serial.println("Month: " + String(month));
+    Serial.println("Day: " + String(day));
+    Serial.println("Hour: " + String(hour));
+    Serial.println("Minute: " + String(minute));
+    Serial.println("Second: " + String(second));
+
+    // Create a tm struct and set its fields
+    struct tm timeStruct = {};
+    timeStruct.tm_year = year - 1900;  // tm_year is years since 1900
+    timeStruct.tm_mon = month - 1;     // tm_mon is 0-based
+    timeStruct.tm_mday = day;
+    timeStruct.tm_hour = hour;
+    timeStruct.tm_min = minute;
+    timeStruct.tm_sec = second;
+
+    // Convert to Unix timestamp
+    time_t alarmTimeUnix = mktime(&timeStruct);
+    if (alarmTimeUnix == -1) {
+      Serial.println("Failed to convert time to Unix timestamp");
+      return;
+    }
+
+    // Store alarm date, time, and Unix timestamp in preferences
+    Config->PutString(ALERT_DATE_, alarmDate);
+    Config->PutString(ALERT_TIME_, alarmTime);
+    Config->PutULong64(ALERT_TIMESTAMP_SAVED, alarmTimeUnix);
+
+    // Debug output before saving values
+    Serial.println("#########################################");
+    Serial.println("Saving Alert Date: " + alarmDate);
+    Serial.println("Saving Alert Time: " + alarmTime);
+    Serial.println("Saving Alert Unix Timestamp: " + String(alarmTimeUnix));
+    Serial.println("#########################################");
+  }
 }
